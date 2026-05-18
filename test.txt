@@ -1,0 +1,642 @@
+[
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.793Z"},
+    "display": {
+      "sort": 1,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "1",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-18T11:45:46.731Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 2,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "2",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-18T11:44:31.941Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 3,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "3",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-18T11:44:37.696Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 4,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "4",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.794Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 5,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "5",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-18T11:44:45.264Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 6,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "6",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.794Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 7,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "7",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.794Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 8,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "8",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.794Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.794Z"},
+    "display": {
+      "sort": 9,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "Space_1",
+    "table_status": "hidden",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.794Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 10,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "9",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 11,
+      "zone": "Main",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "10",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 12,
+      "hide": true,
+      "zone": "Main"
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "11",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 13,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "กลับบ้าน A",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 14,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "กลับบ้าน B",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 15,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "กลับบ้าน C",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 16,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "กลับบ้าน D",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 17,
+      "zone": "lineman",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ไลน์แมน A",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-17T14:21:54.859Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 18,
+      "zone": "lineman",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ไลน์แมน B",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-17T13:21:54.727Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 19,
+      "zone": "lineman",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ไลน์แมน C",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-18T11:50:44.108Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.795Z"},
+    "display": {
+      "sort": 20,
+      "hide": true,
+      "zone": "lineman"
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "โรบินฮู้ด A",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.795Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 22,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ส่งเอง A",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.796Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 23,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ส่งเอง B",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.796Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 24,
+      "hide": true,
+      "zone": "Delivery"
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ส่งเอง C",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.796Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 25,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ส่งเอง D",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.796Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 26,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ส่งเอง E",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.796Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 27,
+      "zone": "Delivery",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "ส่งเอง F",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.796Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.796Z"},
+    "display": {
+      "sort": 28,
+      "zone": "VIP1",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "คุณชาย",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.797Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.797Z"},
+    "display": {
+      "sort": 29,
+      "zone": "VIP2",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "โต๊ะเฮีย",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.797Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.797Z"},
+    "display": {
+      "sort": 30,
+      "zone": "Reserve",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "สำรอง A",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.797Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.797Z"},
+    "display": {
+      "sort": 31,
+      "zone": "Reserve",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "สำรอง B",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.797Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.797Z"},
+    "display": {
+      "sort": 32,
+      "zone": "Reserve",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "สำรอง C",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.797Z"}
+  },
+  {
+    "__v": 0,
+    "createdAt": {"$date": "2026-05-13T09:03:07.797Z"},
+    "display": {
+      "sort": 33,
+      "zone": "Partner",
+      "hide": false
+    },
+    "printing": {
+      "print_receipt_status": false,
+      "printer_receipt_name": "Default"
+    },
+    "session": {
+      "shift": "afternoon",
+      "temp_table_name": ""
+    },
+    "table_name": "สำรอง D",
+    "table_status": "available",
+    "updatedAt": {"$date": "2026-05-13T09:03:07.797Z"}
+  }
+]
