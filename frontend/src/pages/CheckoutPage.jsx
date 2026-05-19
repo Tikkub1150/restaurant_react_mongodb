@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 const apiBaseUrl = process.env.REACT_APP_API_URL;
+const REACT_APP_WEB_URL = process.env.REACT_APP_WEB_URL;
 
 const CheckoutPage = () => {
     const { tableId } = useParams();
@@ -15,7 +16,28 @@ const CheckoutPage = () => {
     const [customerName, setCustomerName] = useState("");
     const [cashReceived, setCashReceived] = useState("");
     const [showQR, setShowQR] = useState(false);
-    const [qrTab, setQrTab] = useState(1); // สำหรับเลือก Tab QR 1, 2, 3
+    const [qrList, setQrList] = useState([]);
+    const [selectedQr, setSelectedQr] = useState(null);
+    const [qrLoading, setQrLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchQrData = async () => {
+            try {
+                // เรียกผ่าน axios config เดิมของพี่ วิ่งเข้าเส้น /api/images/qr-images
+                const res = await api.get('/api/images/qr-images');
+                setQrList(res.data);
+                if (res.data.length > 0) {
+                    setSelectedQr(res.data[0]);
+                }
+                setQrLoading(false);
+            } catch (err) {
+                console.error("ดึงข้อมูลรูปภาพ QR ล้มเหลว:", err);
+                setQrLoading(false);
+            }
+        };
+        fetchQrData();
+    }, []);
+
 
     // --- คำนวณยอดแบบปัดเศษทิ้ง ---
     const subTotal = orders.reduce((sum, i) => sum + (i.price * i.quantity), 0);
@@ -73,16 +95,30 @@ const CheckoutPage = () => {
                 <div className="space-y-1 mb-2">
                     {orders.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-xs font-bold text-gray-600">
-                            <span className="flex-1 pr-4 italic">
-                                {item.name}
-                                {item.options && item.options.length > 0 && (
-                                    <span className="text-blue-500 font-normal ml-1">
-                                        ({item.options.map(o => o.label).join(', ')})
-                                    </span>
-                                )}
-                                <span className="ml-1 text-gray-400">x{item.quantity}</span>
-                                <span className="ml-1 text-blue-600 font-extrabold">@{item.price.toLocaleString()}</span>
-                            </span>
+                        <span className="flex-1 pr-4 italic">
+                            {/* 1. แสดงชื่อเมนูอาหารหลัก */}
+                            {item.name}
+
+                            {/* 2. แสดงตัวเลือกเสริม (ถ้ามี) */}
+                            {item.options && item.options.length > 0 && (
+                                <span className="text-blue-500 font-normal ml-1">
+                                    ({item.options.map(o => o.label).join(', ')})
+                                </span>
+                            )}
+
+                            {/* 3. แสดงจำนวนชิ้น และราคากล่อง */}
+                            <span className="ml-1 text-gray-400">x{item.quantity}</span>
+                            <span className="ml-1 text-blue-600 font-extrabold">@{item.price.toLocaleString()}</span>
+
+                            {/* 🎯 4. จุดที่เพิ่ม: แสดงหมายเหตุ (Note) แบบขึ้นบรรทัดใหม่เล็กๆ สีส้มสะดุดตา */}
+                            {item.note && (
+                                <div className="text-orange-500 font-medium text-[11px] not-italic mt-0.5 pl-2">
+                                    📝 หมายเหตุ: {item.note}
+                                </div>
+                            )}
+                        </span>
+
+                            {/* ราคารวมของเมนูนั้นๆ */}
                             <span>{(item.price * item.quantity).toLocaleString()}</span>
                         </div>
                     ))}
@@ -203,16 +239,45 @@ const CheckoutPage = () => {
                             <p className="text-[9px] font-bold text-gray-400 tracking-widest">เลือกช่องทางชำระเงิน</p>
                         </div>
 
-                        <div className="flex border-b text-[10px] font-black">
-                            {[1, 2, 3].map(t => (
-                                <button key={t} onClick={() => setQrTab(t)} className={`flex-1 py-3 transition-all ${qrTab === t ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                                    แบบที่ {t}
-                                </button>
-                            ))}
+                        {/* 🎯 แท็บสลับ แบบที่ 1 และ แบบที่ 2 */}
+                        <div className="flex border-b text-[10px] font-black overflow-x-auto no-scrollbar">
+                            {qrLoading ? (
+                                <div className="p-3 text-center text-gray-400 w-full">กำลังโหลด...</div>
+                            ) : (
+                                qrList.map((qr) => (
+                                    <button
+                                        key={qr._id}
+                                        type="button"
+                                        onClick={() => setSelectedQr(qr)}
+                                        className={`flex-1 min-w-[90px] py-3 transition-all ${selectedQr?._id === qr._id ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-gray-100 text-gray-400'}`}
+                                    >
+                                        {qr.title}
+                                    </button>
+                                ))
+                            )}
                         </div>
 
                         <div className="p-4 text-center">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=QR_TYPE_${qrTab}_${grandTotal}`} className="mx-auto mb-3 border-4 border-gray-50 rounded-2xl w-44 h-44" alt="qr" />
+                            {/* 🎯 แสดงรูปภาพ QR Code สลับตามแท็บ ดึงจากโฟลเดอร์ money ตรงๆ */}
+                            {selectedQr ? (
+                                <>
+                                    {/* 🎯 แสดงรูปภาพ QR Code ดึงพาธและชื่อไฟล์ตามชุดข้อมูลใน Database */}
+                                    <img
+                                        src={`${REACT_APP_WEB_URL}/image/${selectedQr.folder}/${selectedQr.filename}`}
+                                        className="mx-auto border-4 border-gray-50 rounded-2xl w-44 h-44 object-contain"
+                                        alt="qr-payment"
+                                    />
+
+                                    {/* 🎯 แสดงชื่อบัญชีของช่องทางนั้นๆ ตัวหนาชัดเจน */}
+                                    <span className="text-xs font-black text-gray-950 mt-2 mb-3 block">
+                                        {selectedQr.name}
+                                    </span>
+                                </>
+                            ) : (
+                                <div className="w-44 h-44 flex items-center justify-center mx-auto text-gray-400 font-bold text-xs">ไม่มีข้อมูล QR</div>
+                            )}
+
+                            {/* ยอดเงินรวมของพี่อลิสเหมือนเดิม */}
                             <p className="text-2xl font-black text-blue-600 mb-4">{grandTotal.toLocaleString()}.-</p>
 
                             <div className="space-y-2">

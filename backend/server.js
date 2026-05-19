@@ -28,12 +28,14 @@ const orderRoutes = require('./routes/orderRoutes');
 const productRoutes = require('./routes/productRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const materialRoutes = require('./routes/materialRoutes'); // ดึงไฟล์ที่เราเพิ่งแก้ด้านบนมาใช้
+const imageRoutes = require('./routes/imageRoutes'); // ดึงไฟล์ที่เราเพิ่งแก้ด้านบนมาใช้
 
 app.use('/api/tables', tableRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/category', categoryRoutes);
-app.use('/api/materials', materialRoutes); // เจาะท่อรับส่งข้อมูลสั่งซื้อวัตถุดิบที่นี่
+app.use('/api/materials', materialRoutes);
+app.use('/api/images', imageRoutes);
 
 app.listen(5000, '0.0.0.0', () => {
     console.log('🚀 Server running on port 5000 (Open for All Devices)');

@@ -204,7 +204,6 @@ const RestockPage = () => {
                                                 handleFieldChange(idx, 'comment', val);
                                             }
                                         }}
-                                        maxLength={3}
                                         placeholder="โน้ต"
                                         className="w-full bg-gray-50 px-1 py-1.5 rounded-lg border border-gray-300 font-bold text-gray-800 outline-none focus:bg-white text-xs text-center"
                                     />
@@ -217,7 +216,6 @@ const RestockPage = () => {
                                         type="text"
                                         value={item.qty || ''}
                                         onChange={(e) => handleFieldChange(idx, 'qty', e.target.value)}
-                                        maxLength={4}
                                         placeholder="QTY"
                                         className="w-14 bg-gray-50 text-center py-1.5 rounded-lg border border-gray-300 text-gray-950 font-black focus:bg-amber-50 focus:border-amber-400 outline-none text-sm"
                                     />

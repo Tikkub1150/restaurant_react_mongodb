@@ -81,6 +81,14 @@ describe('Full RESTful APIs Test for All Models', () => {
             assert.strictEqual(res.body.table_status, "occupied");
         });
     });
+    describe('TELEGRAM', () => {
+        let tempId;
+
+        it('ควรจะสร้างโต๊ะทั้งหมดได้ในครั้งเดียว (Bulk POST)', async () => {
+            const { sendTelegramNotification } = require('../services/telegramService');
+            sendTelegramNotification('general', 'generalDeleteMsg');
+        });
+    });
 
     // --- ส่วน Product, category, Order ก็ทำเหมือนเดิม ---
     describe('Product API', () => {

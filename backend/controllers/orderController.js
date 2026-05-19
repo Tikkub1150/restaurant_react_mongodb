@@ -1,9 +1,10 @@
 require('dotenv').config();
+const axios = require('axios');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Table = require('../models/Table');
 
-const axios = require('axios');
+const { sendTelegramNotification } = require('../services/telegramService');
 
 exports.getOrdersByTable = async (req, res) => {
     try {
@@ -85,6 +86,8 @@ exports.upsertOrder = async (req, res) => {
             if (newItemsToInsert.length > 0) {
                 await OrderItem.insertMany(newItemsToInsert);
             }
+
+
 
         } else {
             // --- จังหวะสร้างออเดอร์ใหม่ครั้งแรก ---
@@ -204,6 +207,15 @@ exports.deleteOrderItem = async (req, res) => {
                 if (otherOrders.length === 0) {
                     await Table.findByIdAndUpdate(currentTableId, { table_status: 'available' });
                 }
+
+                const generalDeleteMsg = `
+                🛑 *รายการอาหารโดนลบ!*
+    🪑 *โต๊ะ:* โต๊ะ ${order.table_name}
+    🍲 *เมนู:* ${item.name} x${item.quantity}
+                `.trim();
+
+                // สั่งส่งเข้าไลน์แชททั่วไป
+                sendTelegramNotification('general', generalDeleteMsg);
             }
         } else {
             // จังหวะที่ 3: Recalculate เงินใหม่
@@ -450,6 +462,42 @@ exports.closeOrder = async (req, res) => {
 
         // ปลุกโต๊ะอาหารให้กลับมาว่างพร้อมใช้งาน
         await Table.findByIdAndUpdate(masterOrder.tableId, { table_status: 'available' });
+
+        // =========================================================
+        // 🚀 🛠️ ส่วนส่งแจ้งเตือน TELEGRAM NOTIFICATION (แก้ Syntax & จัดบรรทัด)
+        // =========================================================
+        try {
+            // 1. ดึงรายการอาหารจากตัวแปร allItems ของพี่มาจัด List
+            const itemsList = allItems.map(item => `- ${item.name} x${item.quantity}`).join('\n');
+
+            // 2. ดึงเฉพาะรายการที่เคยแก้ไข (isEdited เป็น true หรือมีการพิมพ์ซ้ำแล้ว) จาก allItems
+            const editedItems = allItems.filter(item => item.isEdited || item.printCount > 0);
+            const editedList = editedItems.length > 0
+                ? editedItems.map(item => `- ${item.name} (แก้มาแล้ว ${item.printCount} ครั้ง)`).join('\n')
+                : '- ไม่มีรายการแก้ไข';
+
+            // 3. ประกอบข้อความสั้น กระชับตามสั่ง (จัดขึ้นบรรทัดใหม่ให้สวยงาม)
+            const checkoutMsg = `
+🔔 *เช็คบิลปิดโต๊ะ*
+📍 *โต๊ะ:* โต๊ะ ${masterOrder.table_name || 'ทั่วไป'}
+💳 *ชำระโดย:* ${paymentMethod === 'cash' ? 'เงินสด' : 'โอน (PromptPay)'}
+💰 *จำนวนเงินรวม:* ${totalAmount?.toLocaleString()}.- บาท
+
+📦 *[ รายการอาหาร ]*
+${itemsList}
+
+⚠️ *[ ออเดอร์ที่เคยแก้ ]*
+${editedList}
+`.trim();
+
+            // 4. ส่งออกไปที่ห้องแชทเช็คบิล
+            sendTelegramNotification('checkout', checkoutMsg);
+        } catch (telegramErr) {
+            // ดัก Error แยกไว้ เผื่อ Telegram มีปัญหา หน้าบ้านจะได้เช็คบิลผ่าน ไม่พัง Error 500 ครับพี่
+            console.error('❌ แจ้งเตือน Telegram เช็คบิลพลาด:', telegramErr.message);
+        }
+        // =========================================================
+
 
         res.json({ message: "เช็คบิลสำเร็จ" });
     } catch (err) {

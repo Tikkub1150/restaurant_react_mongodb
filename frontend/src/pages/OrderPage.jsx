@@ -108,7 +108,6 @@ const OrderPage = () => {
             } else {
                 if (orderId) {
                     await api.post('/api/orders/item/add', { ...itemData, orderId });
-                    await api.put(`/api/orders/update-note/${orderId}`, { tableNote });
                 } else {
                     await api.post('/api/orders', {
                         tableId,
@@ -212,9 +211,27 @@ const OrderPage = () => {
         }
     };
 
+    // 🎯 ฟังก์ชันอัปเดตหมายเหตุโต๊ะไปยังหลังบ้านเมื่อพิมพ์เสร็จ
+    const handleUpdateTableNote = async (value) => {
+        // ดักเช็คก่อนว่ามีรายการเล่มออเดอร์ (orderId) หรือไม่ ถ้าไม่มีไม่ยิงพร่ำเพรื่อ
+        const orderId = existingOrders?.[0]?._id;
+        if (!orderId) return;
+
+        try {
+            await api.put(`/api/orders/update-note/${orderId}`, { tableNote: value });
+            console.log("บันทึกหมายเหตุโต๊ะสำเร็จ");
+        } catch (err) {
+            console.error("บันทึกหมายเหตุโต๊ะล้มเหลว:", err);
+        }
+    };
+
     if (loading) return <div className="p-10 text-center font-bold text-gray-500 uppercase tracking-widest">Loading...</div>;
 
     const hasItems = existingOrders.some(o => o.items.length > 0);
+
+    const hasItemsPending = existingOrders.some(order =>
+        order.items && order.items.some(item => item.status === 'pending' || item.status === 'printing')
+    );
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 pb-48 font-sans text-xs font-bold">
@@ -223,26 +240,51 @@ const OrderPage = () => {
                 <select
                     onChange={(e) => handleMoveTable(e.target.value)}
                     value={tableId}
-                    className="px-2 py-2 rounded-xl text-[11px] font-black outline-none bg-blue-50 text-blue-700 border border-blue-100 shrink-0 max-w-[95px]"
+                    // ปรับความกว้างสูงสุดเพิ่มเล็กน้อย (max-w-[130px]) เพื่อให้เห็นชื่อกลุ่มกะและชื่อโต๊ะที่ยาวขึ้นได้ชัดเจนครับพี่
+                    className="px-2 py-2 rounded-xl text-[11px] font-black outline-none bg-blue-50 text-blue-700 border border-blue-100 shrink-0 max-w-[130px]"
                 >
                     <option value={tableId}>📍 โต๊ะ {tableInfo?.table_name || ''}</option>
-                    {allTables.filter(t => t.table_status === 'available' && t._id !== tableId).map(t => (
-                        <option key={t._id} value={t._id}>🪑 ย้ายไป โต๊ะ {t.table_name}</option>
-                    ))}
+
+                    {/* 🌅 กลุ่มช่วงเช้า (Morning Shift) */}
+                    <optgroup label="☀️ ช่วงเช้า">
+                        {allTables
+                            .filter(t => t.session?.shift === 'morning' && t.table_status === 'available' && t._id !== tableId)
+                            .map(t => (
+                                <option key={t._id} value={t._id}>☀️ โต๊ะ {t.table_name}</option>
+                            ))
+                        }
+                    </optgroup>
+
+                    {/* 🌇 กลุ่มช่วงบ่าย (Afternoon Shift) */}
+                    <optgroup label="🌙 ช่วงบ่าย">
+                        {allTables
+                            .filter(t => t.session?.shift === 'afternoon' && t.table_status === 'available' && t._id !== tableId)
+                            .map(t => (
+                                <option key={t._id} value={t._id}>🌙 โต๊ะ {t.table_name}</option>
+                            ))
+                        }
+                    </optgroup>
                 </select>
 
                 <input
                     type="text"
                     value={tableNote}
                     onChange={(e) => setTableNote(e.target.value)}
+                    onBlur={(e) => handleUpdateTableNote(e.target.value)}
                     placeholder="หมายเหตุโต๊ะ..."
                     className="flex-1 bg-gray-50 rounded-xl px-2.5 py-2 outline-none text-[11px] min-w-0"
                 />
 
                 <button
                     onClick={handlePrintOrder}
-                    disabled={!hasItems}
-                    className={`px-3.5 py-2 rounded-xl font-black text-[11px] shrink-0 transition-all ${hasItems ? 'bg-orange-500 text-white shadow-md active:scale-95' : 'bg-gray-100 text-gray-400'}`}
+                    // 🎯 ถ้าไม่มีรายการ pending หรือ printing (hasItemsPending เป็น false) ให้เปิด disabled (ห้ามกด)
+                    disabled={!hasItemsPending}
+                    // 🎯 ปรับสีปุ่มให้สลับตามเงื่อนไข hasItemsPending ด้วย พนักงานจะได้ดูง่ายๆ ครับ
+                    className={`px-3.5 py-2 rounded-xl font-black text-[11px] shrink-0 transition-all ${
+                        hasItemsPending
+                            ? 'bg-orange-500 text-white shadow-md active:scale-95'
+                            : 'bg-gray-100 text-gray-400'
+                    }`}
                 >
                     พิมพ์
                 </button>
@@ -367,7 +409,7 @@ const OrderPage = () => {
             {/* Item Detail Modal */}
             {isModalOpen && selectedProduct && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs text-xs font-bold">
-                    <div className="bg-white w-full max-w-md rounded-2xl p-6 overflow-y-auto max-h-[90vh]">
+                    <div className="bg-white w-full max-w-md rounded-2xl p-2 overflow-y-auto max-h-[90vh]">
                         <h2 className="text-xl font-black text-gray-800">{isEditing ? 'แก้ไข' : 'สั่ง'} {selectedProduct.name}</h2>
 
                         {selectedProduct.options?.length > 0 && (
@@ -375,7 +417,7 @@ const OrderPage = () => {
                                 <p className="text-gray-400 mb-1.5 uppercase text-[10px]">ตัวเลือกเพิ่มเติม</p>
                                 <div className="flex flex-wrap gap-1.5">
                                     {selectedProduct.options.map((opt, i) => (
-                                        <button key={i} onClick={() => toggleOption(opt)} className={`px-3 py-1.5 rounded-xl border-2 transition-all ${selectedOptions.find(o => o.label === opt.label) ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}>{opt.label} (+{opt.extraPrice})</button>
+                                        <button key={i} onClick={() => toggleOption(opt)} className={`text-base px-3 py-1.5 rounded-xl border-2 transition-all ${selectedOptions.find(o => o.label === opt.label) ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}>{opt.label} (+{opt.extraPrice})</button>
                                     ))}
                                 </div>
                             </div>
@@ -389,7 +431,7 @@ const OrderPage = () => {
                                         <button
                                             key={i}
                                             onClick={() => setNote(prev => prev ? `${prev}, ${tag}` : tag)}
-                                            className="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 font-bold"
+                                            className="text-base px-2.5 py-1 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 font-bold"
                                         >
                                             + {tag}
                                         </button>
@@ -397,7 +439,7 @@ const OrderPage = () => {
                                     {note && (
                                         <button
                                             onClick={() => setNote("")}
-                                            className="px-2.5 py-1 rounded-lg bg-red-50 text-red-500 border border-red-100 font-bold"
+                                            className="text-base px-2.5 py-1 rounded-lg bg-red-50 text-red-500 border border-red-100 font-bold"
                                         >
                                             ล้างหมายเหตุ
                                         </button>
