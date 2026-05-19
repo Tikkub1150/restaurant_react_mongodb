@@ -407,81 +407,96 @@ const OrderPage = () => {
             </div>
 
             {/* Item Detail Modal */}
+            {/* Item Detail Modal */}
             {isModalOpen && selectedProduct && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs text-xs font-bold">
-                    <div className="bg-white w-full max-w-md rounded-2xl p-2 overflow-y-auto max-h-[90vh]">
-                        <h2 className="text-xl font-black text-gray-800">{isEditing ? 'แก้ไข' : 'สั่ง'} {selectedProduct.name}</h2>
+                    {/* 🎯 ปรับโครงสร้าง Wrapper ของป๊อปอัพให้เป็น flex และล็อคความสูงสูงสุดไว้ */}
+                    <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
 
-                        {selectedProduct.options?.length > 0 && (
-                            <div className="mb-4 pt-3">
-                                <p className="text-gray-400 mb-1.5 uppercase text-[10px]">ตัวเลือกเพิ่มเติม</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {selectedProduct.options.map((opt, i) => (
-                                        <button key={i} onClick={() => toggleOption(opt)} className={`text-base px-3 py-1.5 rounded-xl border-2 transition-all ${selectedOptions.find(o => o.label === opt.label) ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}>{opt.label} (+{opt.extraPrice})</button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {selectedProduct.quickTags?.length > 0 && (
-                            <div className="mb-4">
-                                <p className="text-gray-400 mb-1.5 uppercase text-[10px]">คำสั่งด่วน (Quick Tags)</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {selectedProduct.quickTags.map((tag, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => setNote(prev => prev ? `${prev}, ${tag}` : tag)}
-                                            className="text-base px-2.5 py-1 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 font-bold"
-                                        >
-                                            + {tag}
-                                        </button>
-                                    ))}
-                                    {note && (
-                                        <button
-                                            onClick={() => setNote("")}
-                                            className="text-base px-2.5 py-1 rounded-lg bg-red-50 text-red-500 border border-red-100 font-bold"
-                                        >
-                                            ล้างหมายเหตุ
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mb-4">
-                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">ระบุหมายเหตุ (พิมพ์เอง)</label>
-                            <input
-                                type="text"
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                placeholder="เช่น ไม่เผ็ด, พิเศษ..."
-                                className="w-full bg-gray-50 border-none rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                        {/* 🏢 ส่วนหัว (Header) อยู่คงที่ */}
+                        <div className="p-4 pb-2 border-b border-gray-100 shrink-0">
+                            <h2 className="text-xl font-black text-gray-800">
+                                {isEditing ? 'แก้ไข' : 'สั่ง'} {selectedProduct.name}
+                            </h2>
                         </div>
 
-                        <div className="flex items-center justify-between mb-6 bg-gray-50 p-3 rounded-xl">
-                            <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 rounded-full bg-white shadow font-black">-</button>
-                            <span className="font-black text-xl text-blue-600">{quantity}</span>
-                            <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 rounded-full bg-white shadow font-black">+</button>
-                        </div>
-
-                        <div className={`grid ${isEditing ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
-                            <button onClick={() => setIsModalOpen(false)} className="py-3 rounded-xl text-gray-400 bg-gray-100 font-black">ยกเลิก</button>
-                            {isEditing && (
-                                <button
-                                    onClick={async () => {
-                                        if(!window.confirm("ลบรายการนี้?")) return;
-                                        await api.delete(`/api/orders/item/${editItemId}`);
-                                        setIsModalOpen(false);
-                                        fetchData();
-                                    }}
-                                    className="py-3 rounded-xl text-white bg-red-500 shadow-sm font-black"
-                                >
-                                    ลบ
-                                </button>
+                        {/* 📜 ส่วนเนื้อหา (Body) เลื่อน Scroll ได้อิสระถ้าตัวเลือกมันยาว */}
+                        <div className="p-4 overflow-y-auto flex-1 space-y-4 no-scrollbar">
+                            {selectedProduct.options?.length > 0 && (
+                                <div>
+                                    <p className="text-gray-400 mb-1.5 uppercase text-[10px]">ตัวเลือกเพิ่มเติม</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {selectedProduct.options.map((opt, i) => (
+                                            <button key={i} onClick={() => toggleOption(opt)} className={`text-base px-3 py-1.5 rounded-xl border-2 transition-all ${selectedOptions.find(o => o.label === opt.label) ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}>{opt.label} (+{opt.extraPrice})</button>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
-                            <button onClick={handleSaveOrder} className="py-3 rounded-xl text-white bg-blue-600 shadow-sm font-black">{isEditing ? 'บันทึก' : 'ตกลง'}</button>
+
+                            {selectedProduct.quickTags?.length > 0 && (
+                                <div>
+                                    <p className="text-gray-400 mb-1.5 uppercase text-[10px]">คำสั่งด่วน (Quick Tags)</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {selectedProduct.quickTags.map((tag, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => setNote(prev => prev ? `${prev}, ${tag}` : tag)}
+                                                className="text-base px-2.5 py-1 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 font-bold"
+                                            >
+                                                + {tag}
+                                            </button>
+                                        ))}
+                                        {note && (
+                                            <button
+                                                onClick={() => setNote("")}
+                                                className="text-base px-2.5 py-1 rounded-lg bg-red-50 text-red-500 border border-red-100 font-bold"
+                                            >
+                                                ล้างหมายเหตุ
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">ระบุหมายเหตุ (พิมพ์เอง)</label>
+                                <input
+                                    type="text"
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    placeholder="เช่น ไม่เผ็ด, พิเศษ..."
+                                    className="w-full bg-gray-50 border-none rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 rounded-full bg-white shadow font-black">-</button>
+                                <span className="font-black text-xl text-blue-600">{quantity}</span>
+                                <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 rounded-full bg-white shadow font-black">+</button>
+                            </div>
                         </div>
+
+                        {/* 🔒 ส่วนท้าย (Footer) ล็อคแผงปุ่มกดให้อยู่ติดก้นป๊อปอัพตลอดเวลา ไม่ขยับตามการ Scroll */}
+                        <div className="p-4 border-t border-gray-100 bg-gray-50 shrink-0">
+                            <div className={`grid ${isEditing ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
+                                <button onClick={() => setIsModalOpen(false)} className="py-3 rounded-xl text-gray-400 bg-white border border-gray-200 font-black shadow-2xs">ยกเลิก</button>
+                                {isEditing && (
+                                    <button
+                                        onClick={async () => {
+                                            if(!window.confirm("ลบรายการนี้?")) return;
+                                            await api.delete(`/api/orders/item/${editItemId}`);
+                                            setIsModalOpen(false);
+                                            fetchData();
+                                        }}
+                                        className="py-3 rounded-xl text-white bg-red-500 shadow-sm font-black"
+                                    >
+                                        ลบ
+                                    </button>
+                                )}
+                                <button onClick={handleSaveOrder} className="py-3 rounded-xl text-white bg-blue-600 shadow-sm font-black">{isEditing ? 'บันทึก' : 'ตกลง'}</button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             )}

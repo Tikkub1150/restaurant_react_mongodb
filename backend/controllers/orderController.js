@@ -208,11 +208,16 @@ exports.deleteOrderItem = async (req, res) => {
                     await Table.findByIdAndUpdate(currentTableId, { table_status: 'available' });
                 }
 
+                // 🎯 ดึงตัวเลือกเสริมมาต่อท้ายชื่อเมนู (ถ้ามี)
+                const deleteOptionsStr = item.options && item.options.length > 0
+                    ? ` (${item.options.map(o => o.label).join(', ')})`
+                    : '';
+
                 const generalDeleteMsg = `
-                🛑 *รายการอาหารโดนลบ!*
-    🪑 *โต๊ะ:* โต๊ะ ${order.table_name}
-    🍲 *เมนู:* ${item.name} x${item.quantity}
-                `.trim();
+🛑 *รายการอาหารโดนลบ!*
+🪑 *โต๊ะ:* โต๊ะ ${order.table_name}
+🍲 *เมนู:* ${item.name}${deleteOptionsStr} x${item.quantity}
+            `.trim();
 
                 // สั่งส่งเข้าไลน์แชททั่วไป
                 sendTelegramNotification('general', generalDeleteMsg);
@@ -464,19 +469,29 @@ exports.closeOrder = async (req, res) => {
         await Table.findByIdAndUpdate(masterOrder.tableId, { table_status: 'available' });
 
         // =========================================================
-        // 🚀 🛠️ ส่วนส่งแจ้งเตือน TELEGRAM NOTIFICATION (แก้ Syntax & จัดบรรทัด)
+        // 🚀 🛠️ ส่วนส่งแจ้งเตือน TELEGRAM NOTIFICATION (เพิ่มแสดง Option)
         // =========================================================
         try {
-            // 1. ดึงรายการอาหารจากตัวแปร allItems ของพี่มาจัด List
-            const itemsList = allItems.map(item => `- ${item.name} x${item.quantity}`).join('\n');
+            // 1. ดึงรายการอาหารทั้งหมดมาจัด List + แสดง Options (ถ้ามี)
+            const itemsList = allItems.map(item => {
+                const optionsStr = item.options && item.options.length > 0
+                    ? ` (${item.options.map(o => o.label).join(', ')})`
+                    : '';
+                return `- ${item.name}${optionsStr} x${item.quantity}`;
+            }).join('\n');
 
-            // 2. ดึงเฉพาะรายการที่เคยแก้ไข (isEdited เป็น true หรือมีการพิมพ์ซ้ำแล้ว) จาก allItems
+            // 2. ดึงเฉพาะรายการที่เคยแก้ไขมาจัด List + แสดง Options (ถ้ามี)
             const editedItems = allItems.filter(item => item.isEdited || item.printCount > 0);
             const editedList = editedItems.length > 0
-                ? editedItems.map(item => `- ${item.name} (แก้มาแล้ว ${item.printCount} ครั้ง)`).join('\n')
+                ? editedItems.map(item => {
+                    const optionsStr = item.options && item.options.length > 0
+                        ? ` (${item.options.map(o => o.label).join(', ')})`
+                        : '';
+                    return `- ${item.name}${optionsStr} x${item.quantity} (แก้มาแล้ว ${item.printCount} ครั้ง)`;
+                }).join('\n')
                 : '- ไม่มีรายการแก้ไข';
 
-            // 3. ประกอบข้อความสั้น กระชับตามสั่ง (จัดขึ้นบรรทัดใหม่ให้สวยงาม)
+            // 3. ประกอบข้อความสั้น กระชับตามสั่ง
             const checkoutMsg = `
 🔔 *เช็คบิลปิดโต๊ะ*
 📍 *โต๊ะ:* โต๊ะ ${masterOrder.table_name || 'ทั่วไป'}
@@ -493,7 +508,6 @@ ${editedList}
             // 4. ส่งออกไปที่ห้องแชทเช็คบิล
             sendTelegramNotification('checkout', checkoutMsg);
         } catch (telegramErr) {
-            // ดัก Error แยกไว้ เผื่อ Telegram มีปัญหา หน้าบ้านจะได้เช็คบิลผ่าน ไม่พัง Error 500 ครับพี่
             console.error('❌ แจ้งเตือน Telegram เช็คบิลพลาด:', telegramErr.message);
         }
         // =========================================================
