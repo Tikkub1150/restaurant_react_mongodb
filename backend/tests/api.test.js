@@ -4,7 +4,8 @@ const assert = require('assert');
 const mongoose = require('mongoose');
 const app = require('../server');
 
-const { expect } = require('chai'); // กลับมา require ได้ตามปกติร้อยเปอร์เซ็นต์ครับ!
+const { expect } = require('chai');
+const {sendTelegramNotification} = require("../services/telegramService"); // กลับมา require ได้ตามปกติร้อยเปอร์เซ็นต์ครับ!
 
 describe('Full RESTful APIs Test for All Models', () => {
 
@@ -87,6 +88,37 @@ describe('Full RESTful APIs Test for All Models', () => {
         it('ควรจะสร้างโต๊ะทั้งหมดได้ในครั้งเดียว (Bulk POST)', async () => {
             const { sendTelegramNotification } = require('../services/telegramService');
             sendTelegramNotification('general', 'generalDeleteMsg');
+        });
+    });
+    describe('confirmOrderPrinting', () => {
+        let tempId;
+
+        it('เทส', async () => {
+            const { confirmOrderPrinting } = require('../controllers/orderController');
+
+            // 1. สร้าง req object
+            const req = {
+                params: { orderId: '6a0d4fe6a35962dace5867be' }
+            };
+
+            // 2. สร้าง res object จำลอง (Mock) เพื่อให้ดักจับสถานะที่ส่งกลับมาได้
+            const res = {
+                status: function(code) {
+                    this.statusCode = code;
+                    return this; // ส่ง return this เพื่อให้สามารถเขียนต่อท้าย .json() ได้
+                },
+                json: function(data) {
+                    this.body = data;
+                    return this;
+                }
+            };
+
+            // 3. ส่งไปทั้ง req และ res
+            await confirmOrderPrinting(req, res);
+
+            // ลองปริ้นผลลัพธ์ดูว่า Controller ตอบกลับมาว่าอะไร
+            console.log("Response Status Code:", res.statusCode || 200);
+            console.log("Response Body:", res.body);
         });
     });
 

@@ -1,0 +1,43 @@
+.container {
+  padding: 20px;
+  background-color: #1a1d23;
+  min-height: 100vh;
+  color: white;
+}
+
+.header {
+  margin-bottom: 25px;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 คอลัมน์ */
+  gap: 12px;
+  max-width: 900px;
+}
+
+.table-card {
+  padding: 25px 10px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.table-card:active {
+  transform: scale(0.95);
+}
+
+.status-available {
+  background-color: #4a515a;
+  color: #ffffff;
+}
+
+.status-occupied {
+  background-color: #007bff; /* สีฟ้าตามรูป image_56f082.png */
+  color: #ffffff;
+}

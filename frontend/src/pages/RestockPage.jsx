@@ -111,15 +111,41 @@ const RestockPage = () => {
         setImageUrl(null);
     };
 
-    const handleClearPrices = () => {
+    // 🧹 ฟังก์ชันเคลียร์ราคาต้นทุนทั้งหมด + บันทึกลงฐานข้อมูลให้อัตโนมัติทันที
+    const handleClearPrices = async () => {
         setShowDropdown(false);
-        if (!window.confirm("ต้องการเคลียร์ช่องราคาทั้งหมดของร้านนี้ใช่ไหมครับ? 🧹")) return;
+        if (!window.confirm("ต้องการเคลียร์ช่องราคาทั้งหมดของร้านนี้ใช่ไหมครับ? 🧹 (ระบบจะบันทึกให้อัตโนมัติ)")) return;
+
+        // 1. เคลียร์ค่าราคาสินค้าในตัวแปร updated ก่อน
         const updated = editingItems.map(item => ({
             ...item,
             price: "",
             unitPrice: 0
         }));
+
+        // อัปเดตหน้าจอทันทีเพื่อให้พนักงานเห็นว่าค่าหายไปแล้ว
         setEditingItems(updated);
+
+        // 2. 🚀 ยิง API บันทึกเข้าฐานข้อมูลถาวรทันที (ถอดแบบลอจิกมาจาก handleSaveOrder เป๊ะๆ)
+        try {
+            setIsSaving(true);
+            const currentOrder = orders[activeTab]; // ดึงข้อมูลร้านปัจจุบันมาหา ID
+            if (!currentOrder) return;
+
+            // ยิงเซิฟเวอร์หลังบ้าน
+            await axios.put(`${apiBaseUrl}/api/materials/${currentOrder._id}/items`, {
+                items: updated
+            });
+
+            // ดึงข้อมูลจากฐานข้อมูลมาอัปเดต State ก้อนใหญ่ใหม่อีกรอบเพื่อความชัวร์
+            await fetchOrders();
+            alert("ล้างราคาและบันทึกข้อมูลเรียบร้อยครับพี่อลิส! ✨");
+        } catch (err) {
+            console.error("เกิดข้อผิดพลาดตอนเซฟเคลียร์ราคา:", err);
+            alert("บันทึกลงเซิร์ฟเวอร์ไม่สำเร็จ เช็คระบบหลังบ้านอีกครั้งครับพี่");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     if (loading) return <div className="p-4 text-center text-sm font-black text-gray-800">กำลังโหลดรายการสด...</div>;
@@ -300,7 +326,7 @@ const RestockPage = () => {
                                         <tr key={index} className="border-b border-gray-100 bg-white">
                                             <td className="p-2 font-black text-gray-950">{`${index + 1}. ${item.name}`}</td>
                                             <td className="p-2 text-center font-black text-gray-900 bg-gray-50/50">
-                                                {item.qty} {item.unit_type || 'โล'}
+                                                {item.qty}
                                             </td>
                                         </tr>
                                     ))}

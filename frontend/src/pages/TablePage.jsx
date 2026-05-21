@@ -11,12 +11,23 @@ const TablePage = () => {
     const currentShift = localStorage.getItem('working_shift') || 'morning';
 
     useEffect(() => {
-        // ส่ง query ?shift= ไปที่ backend
-        axios.get(`${apiBaseUrl}/api/tables?shift=${currentShift}`)
-            .then(res => {
-                setTables(res.data);
-            })
-            .catch(err => console.error("Error fetching tables:", err));
+        // 1. สร้างฟังก์ชันแยกออกมารับหน้าที่ยิง API
+        const fetchTablesData = () => {
+            axios.get(`${apiBaseUrl}/api/tables?shift=${currentShift}`)
+                .then(res => {
+                    setTables(res.data);
+                })
+                .catch(err => console.error("Error fetching tables:", err));
+        };
+
+        // 2. สั่งให้ทำงานทันที 1 ครั้งตอนเปิดหน้าจอ
+        fetchTablesData();
+
+        // 3. สั่งให้ทำงานวนลูปซ้ำๆ ทุกๆ 3 วินาที (3000ms) อารมณ์ Ajax Polling
+        const intervalId = setInterval(fetchTablesData, 2000);
+
+        // 4. เคลียร์ลูปทิ้งเมื่อพนักงานย้ายหน้า ป้องกันเครื่องหน่วง
+        return () => clearInterval(intervalId);
     }, [currentShift]);
 
     const getStatusStyle = (status) => {

@@ -89,8 +89,10 @@ const OrderPage = () => {
                 options: selectedOptions,
                 note: note,
                 status: 'pending', // เด้งกลับมาเป็น pending เพื่อรอปริ้นใหม่ชัวร์ๆ
-                printer_name: selectedProduct.printer_name
+                printer_name: selectedProduct.printer_name,
+                categoryName: selectedProduct.category,   // ดึงชื่อหมวดหมู่จากตัวสินค้าที่กำลังกดสั่ง
             };
+
 
             // 🎯 [จุดแก้ไข] เช็คว่าถ้าเป็นการแก้ไขไอเทมที่เคยพิมพ์ไปแล้ว (status เดิมเป็น printed)
             // หาไอเทมเดิมในลิสต์เพื่อเช็คสถานะ หรือใช้ Flag จากหน้าแก้ไขของพี่ได้เลย
@@ -101,9 +103,10 @@ const OrderPage = () => {
 
             // 2. ยิง API บันทึกข้อมูลตามลอจิกเดิม
             if (isEditing) {
-                if (isAlreadyPrinted) {
-                    itemData.isEdited = true;
-                }
+                itemData.isEdited = true;
+                // if (isAlreadyPrinted && !itemData.isPrinted === false) {
+                //     itemData.isPrinted = true;
+                // }
                 await api.put(`/api/orders/item/${editItemId}`, itemData);
             } else {
                 if (orderId) {
@@ -153,7 +156,8 @@ const OrderPage = () => {
             // ลอจิกสั่งพิมพ์เดิมของพี่อลิสทำงานต่อ
             await api.put(`/api/orders/confirm-print/${order._id}`);
             // alert('✅ ส่งพิมพ์แล้ว!');
-            fetchData();
+            // fetchData();
+            navigate('/');
         } catch (err) {
             alert('❌ พิมพ์ไม่สำเร็จ');
             setLoading(false);
@@ -218,8 +222,9 @@ const OrderPage = () => {
         if (!orderId) return;
 
         try {
+            // console.log(orderId, value);
             await api.put(`/api/orders/update-note/${orderId}`, { tableNote: value });
-            console.log("บันทึกหมายเหตุโต๊ะสำเร็จ");
+            // console.log("บันทึกหมายเหตุโต๊ะสำเร็จ");
         } catch (err) {
             console.error("บันทึกหมายเหตุโต๊ะล้มเหลว:", err);
         }
@@ -256,11 +261,11 @@ const OrderPage = () => {
                     </optgroup>
 
                     {/* 🌇 กลุ่มช่วงบ่าย (Afternoon Shift) */}
-                    <optgroup label="🌙 ช่วงบ่าย">
+                    <optgroup label="🌚 ช่วงบ่าย">
                         {allTables
                             .filter(t => t.session?.shift === 'afternoon' && t.table_status === 'available' && t._id !== tableId)
                             .map(t => (
-                                <option key={t._id} value={t._id}>🌙 โต๊ะ {t.table_name}</option>
+                                <option key={t._id} value={t._id}>🌚 โต๊ะ {t.table_name}</option>
                             ))
                         }
                     </optgroup>
@@ -311,9 +316,10 @@ const OrderPage = () => {
                         <div className="w-16 h-16 bg-blue-50/50 rounded-lg flex items-center justify-center overflow-hidden shrink-0 relative border border-gray-50">
                             {product.image ? (
                                 <img
-                                    src={`/image/${product.image}`}
+                                    src={`/image/product/${product.image}`}
                                     alt={product.name}
                                     className="w-full h-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                         e.target.style.display = 'none';
                                         const textFallback = e.target.nextSibling;
@@ -372,7 +378,7 @@ const OrderPage = () => {
                             </span>
                                             {item.printCount > 0 && (
                                                 <span className="bg-red-50 text-red-600 text-[10px] px-1 rounded ml-1">
-                                    แก้ครั้งที่ {item.printCount}
+                                    พิมพ์ครั้งที่ {item.printCount}
                                 </span>
                                             )}
                                             {item.options?.length > 0 && (
@@ -493,7 +499,7 @@ const OrderPage = () => {
                                         ลบ
                                     </button>
                                 )}
-                                <button onClick={handleSaveOrder} className="py-3 rounded-xl text-white bg-blue-600 shadow-sm font-black">{isEditing ? 'บันทึก' : 'ตกลง'}</button>
+                                <button onClick={handleSaveOrder} className="py-3 rounded-xl text-white bg-blue-600 shadow-sm font-black">บันทึก</button>
                             </div>
                         </div>
 

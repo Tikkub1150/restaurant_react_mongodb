@@ -68,17 +68,14 @@ exports.upsertOrder = async (req, res) => {
 
             // 3. เตรียมข้อมูลใหม่ (ลบ _id เดิมออก) และจัดการสถานะ
             const newItemsToInsert = items.map(item => {
-                // เช็คสถานะเดิมก่อนโดนลบ (ถ้าเคยพิมพ์แล้วให้เป็น printed_edited)
                 let finalStatus = 'pending';
-                if (item.status === 'printed') {
-                    finalStatus = 'printed_edited';
-                }
 
                 return {
                     ...item,
                     _id: undefined,      // ✅ ลบ ID เก่าออกตามที่พี่บอก เพื่อให้ DB เจนใหม่
                     orderId: order._id,  // ผูก ID บิลเดิม
-                    status: finalStatus  // เซตสถานะใหม่ (pending หรือ printed_edited)
+                    status: finalStatus,  // เซตสถานะใหม่ pending
+                    categoryName: item.categoryName,
                 };
             });
 
@@ -96,7 +93,8 @@ exports.upsertOrder = async (req, res) => {
                 ...i,
                 _id: undefined,
                 orderId: order._id,
-                status: 'pending'
+                status: 'pending',
+                categoryName: i.categoryName,
             }));
             await OrderItem.insertMany(initialItems);
         }
@@ -116,7 +114,7 @@ exports.upsertOrder = async (req, res) => {
 exports.updateOrderItem = async (req, res) => {
     try {
         const { itemId } = req.params;
-        const { quantity, note, options, price, name, isEdited } = req.body;
+        const { quantity, note, options, price, name, isEdited, categoryName, isPrinted } = req.body;
 
         // 1. หาข้อมูลเดิมในฐานข้อมูลก่อนโดนอัปเดตทับ
         const oldItem = await OrderItem.findById(itemId);
@@ -128,25 +126,28 @@ exports.updateOrderItem = async (req, res) => {
             options,
             price,
             name,
-            // ถ้าเป็นรายการที่เคยพิมพ์แล้ว ให้เด้งกลับมาเป็น pending เพื่อรอพิมพ์ใหม่
-            // status: oldItem.status === 'printed' ? 'pending' : oldItem.status
-            status: oldItem.status = 'pending'
+            status: 'pending',
+            categoryName: categoryName,
+            isEdited: isEdited,
+            isPrinted: isPrinted || ''
         };
 
-        // 🎯 [จุดเด็ดของพี่อลิส] ถ้าหน้าบ้านส่งมาว่าเป็นไอเทมที่ถูกแก้ไขหลังพิมพ์แล้ว
-        if (isEdited) {
-            updatePayload.isEdited = true;
 
-            // สร้าง Object เก็บประวัติของเก่า ณ วินาทีก่อนโดนเซฟทับ เอาไว้ส่งให้ปริ้นเตอร์ทำรอยขีดฆ่า
-            updatePayload.oldVersion = {
-                name: oldItem.name,
-                quantity: oldItem.quantity,
-                note: oldItem.note || '',
-                options: oldItem.options && oldItem.options.length > 0
-                    ? oldItem.options.map(o => o.label).join(', ')
-                    : ''
-            };
+        // updatePayload.isEdited = true;
+        // สร้าง Object เก็บประวัติของเก่า ณ วินาทีก่อนโดนเซฟทับ เอาไว้ส่งให้ปริ้นเตอร์ทำรอยขีดฆ่า
+        if (!isPrinted) {
+            updatePayload.isPrinted = oldItem.isPrinted; // ถ้ายังไม่เคยพิมพ์มาก่อน ให้คงสถานะเดิมไว้ (ปกติจะเป็น false)
         }
+        updatePayload.oldVersion = {
+            name: oldItem.name,
+            quantity: oldItem.quantity,
+            note: oldItem.note || '',
+            categoryName: oldItem.categoryName || '',
+            options: oldItem.options && oldItem.options.length > 0
+                ? oldItem.options.map(o => o.label).join(', ')
+                : ''
+
+        };
 
         // 2. อัปเดตข้อมูลใหม่ทับลงไป (พร้อมเก็บข้อมูลเก่าไว้ในฟาร์มข้อมูลเรียบร้อย)
         const updatedItem = await OrderItem.findByIdAndUpdate(
@@ -232,7 +233,6 @@ exports.deleteOrderItem = async (req, res) => {
     }
 };
 
-// ฟังก์ชันเสริม: ยืนยันการพิมพ์ (เพื่อเปลี่ยน pending/printed_edited -> printed)
 exports.confirmOrderPrinting = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -257,7 +257,7 @@ exports.confirmOrderPrinting = async (req, res) => {
         const pendingItemIds = pendingItems.map(item => item._id);
         await OrderItem.updateMany(
             { _id: { $in: pendingItemIds } },
-            { $set: { status: 'printing' } }
+            { $set: { status: 'printing', isPrinted: true } }
         );
 
         const printServerUrl = 'http://127.0.0.1:8000/print-order';
@@ -267,10 +267,8 @@ exports.confirmOrderPrinting = async (req, res) => {
         const normalItemsByPrinter = {};
 
         pendingItems.forEach(item => {
-            // 🎯 1. ดักจับค่าว่าง: ถ้าสินค้าชิ้นนี้ไม่มีการระบุเครื่องพิมพ์ ให้ข้าม (skip) ไม่ต้องส่งลงคิวพิมพ์เลย
-            if (!item.printer_name || item.printer_name.trim() === "") {
-                return; // สั่ง return เพื่อข้ามไอเทมชิ้นนี้ไปทำชิ้นถัดไปทันที
-            }
+            // 🎯 1. ดักจับค่าว่าง: ถ้าสินค้าชิ้นนี้ไม่มีการระบุเครื่องพิมพ์ ให้ข้าม (skip)
+            if (!item.printer_name || item.printer_name.trim() === "") return;
             let printerName = item.printer_name || 'POS-80C1';
 
             const optionLabels = item.options && item.options.length > 0
@@ -283,11 +281,11 @@ exports.confirmOrderPrinting = async (req, res) => {
                 quantity: item.quantity,
                 option_name: optionLabels,
                 comment: item.note || '',
-                old_version: null // เริ่มต้นเป็น null
+                old_version: null
             };
 
-            // 🎯 เช็คไอเทมที่มีการแก้ไข (isEdited === true) -> ตัดแยกกระดาษยิงเดี่ยวทันที
-            if (item.isEdited && item.oldVersion) {
+            // 🎯 เช็คไอเทมที่มีการแก้ไข (isPrinted === true) -> ตัดแยกกระดาษยิงเดี่ยวทันที
+            if (item.isPrinted && item.oldVersion) {
                 itemPayload.old_version = {
                     name: item.oldVersion.name,
                     quantity: item.oldVersion.quantity,
@@ -299,19 +297,64 @@ exports.confirmOrderPrinting = async (req, res) => {
                     orderId: orderId,
                     printer_name: printerName,
                     table_name: `[แก้ไข] ${order.table_name || 'ไม่ระบุโต๊ะ'}`,
-                    temp_table_name: order.tableNote ? `( ${order.tableNote} )` : '', // ย้ายโน้ตมาไว้ตรงนี้
+                    temp_table_name: order.tableNote ? `( ${order.tableNote} )` : '',
                     date_create: new Date(order.createdAt).toLocaleString('th-TH', { hour12: false }),
-                    orders: [itemPayload] // ยิงแยกใบเดี่ยวๆ
+                    orders: [itemPayload]
                 };
                 printPromises.push(axios.post(printServerUrl, modifiedPayload, { timeout: 5000 }));
             } else {
-                // รายการสั่งใหม่ปกติ รวบยอดตามเครื่องพิมพ์
                 if (!normalItemsByPrinter[printerName]) {
                     normalItemsByPrinter[printerName] = [];
                 }
                 normalItemsByPrinter[printerName].push(itemPayload);
             }
         });
+
+        // 🎯=========================================🎯
+        // 🎯 เริ่มแทรกลอจิก สรุปรายการอาหารข้ามหมวดหมู่ (ดึงค่าจาก .env)
+        // 🎯=========================================🎯
+        const targetPrinter = process.env.SYNC_PRINTER_NAME || 'POS-80C1';
+        const triggerCat = process.env.SYNC_CATEGORY_MAIN || 'ต้ม';
+
+        // 1. ดึงค่าหมวดเสริมจาก env แล้วสับออกเป็นก้อนๆ เช่น ['ราดข้าว', 'กับข้าว']
+        const subCategoriesEnv = process.env.SYNC_CATEGORY_SUB || 'ราดข้าว,กับข้าว';
+        const targetCategories = subCategoriesEnv.split(',').map(cat => cat.trim());
+
+        // 2. เช็คว่ามีหมวดหลัก (ต้ม) ไหม และกรองเอาไอเทมเฉพาะที่อยู่ในหมวดเสริมออกมา
+        const hasTriggerCat = pendingItems.some(item => item.categoryName === triggerCat);
+        const targetCatItems = pendingItems.filter(item => targetCategories.includes(item.categoryName));
+
+        if (hasTriggerCat && targetCatItems.length > 0) {
+            // 3. 🔄 วนลูปรวมจำนวนจานสะสมแยกตามหมวดหมู่ เช่น { "ราดข้าว": 2, "กับข้าว": 1 }
+            const categoryCounts = {};
+            targetCatItems.forEach(item => {
+                const catName = item.categoryName;
+                categoryCounts[catName] = (categoryCounts[catName] || 0) + item.quantity;
+            });
+
+            // 4. แปลง Object มาวนลูปต่อกันเป็นข้อความบอกจำนวน เช่น "ราดข้าว 2, กับข้าว 1"
+            const summaryText = Object.entries(categoryCounts)
+                .map(([catName, totalQty]) => `${catName} ${totalQty}`)
+                .join(', ');
+
+            // สร้าง Array เตรียมไว้กรณีที่ตั๋วยังไม่มีใน Printer นั้น
+            if (!normalItemsByPrinter[targetPrinter]) {
+                normalItemsByPrinter[targetPrinter] = [];
+            }
+
+            // 5. ยัดไส้เป็นไอเทมปลอมลงไปต่อท้ายใบ (ปรับ quantity เป็น 1 เพื่อไม่ให้ยอดรวมเพี้ยน)
+            normalItemsByPrinter[targetPrinter].push({
+                itemId: "summary_" + Date.now(),
+                menu_name: `📌📌 [รอออกพร้อมกัน] 📌📌`,
+                quantity: 999,
+                option_name: summaryText, // สรุปยอดจะโผล่ตรงนี้: "ราดข้าว 2, กับข้าว 1"
+                comment: "",
+                old_version: null
+            });
+        }
+        // 🎯=========================================🎯
+        // 🎯 สิ้นสุดลอจิกพิเศษ
+        // 🎯=========================================🎯
 
         // เอากลุ่มตั๋วปกติมายิงต่อคิว
         Object.keys(normalItemsByPrinter).forEach(printerName => {
@@ -320,7 +363,7 @@ exports.confirmOrderPrinting = async (req, res) => {
                     orderId: orderId,
                     printer_name: printerName,
                     table_name: order.table_name || 'ไม่ระบุโต๊ะ',
-                    temp_table_name: order.tableNote ? `( ${order.tableNote} )` : '', // ย้ายโน้ตมาไว้ตรงนี้เช่นกัน
+                    temp_table_name: order.tableNote ? `( ${order.tableNote} )` : '',
                     date_create: new Date(order.createdAt).toLocaleString('th-TH', { hour12: false }),
                     orders: normalItemsByPrinter[printerName]
                 };
@@ -337,11 +380,6 @@ exports.confirmOrderPrinting = async (req, res) => {
 
         const updatePromises = pendingItems.map(item => {
             const updateFields = { status: 'printed' };
-            // พิมพ์เสร็จแล้ว เคลียร์สถานะแก้ไขออกเพื่อรอรับการแก้ไขรอบถัดไป (ถ้ามี)
-            if (item.isEdited) {
-                updateFields.isEdited = false;
-                updateFields.oldVersion = null;
-            }
             return OrderItem.findByIdAndUpdate(item._id, {
                 $set: updateFields,
                 $inc: { printCount: 1 }
@@ -364,7 +402,6 @@ exports.updateTableNoteOnly = async (req, res) => {
     try {
         const { orderId } = req.params; // รับ orderId ตรงๆ จากหน้าบ้าน
         const { tableNote } = req.body;
-
         // ค้นหาและอัปเดตหมายเหตุเข้าตัวออเดอร์ ID นี้โดยตรง บรรทัดเดียวจบ
         await Order.findByIdAndUpdate(orderId, { $set: { tableNote: tableNote || "" } });
 
@@ -594,10 +631,20 @@ exports.getMonthlyReport = async (req, res) => {
     try {
         const { year, month } = req.query;
         const targetYear = parseInt(year) || new Date().getFullYear();
-        const targetMonth = parseInt(month) || (new Date().getMonth() + 1);
 
-        const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0));
-        const endDate = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0));
+        let startDate, endDate, dateFormat;
+
+        // 🔄 เช็กโหมด: ถ้าส่งเดือนมา = รายวัน / ถ้าเดือนเป็นค่าว่าง = รายเดือนทั้งปี
+        if (month && month !== "") {
+            const targetMonth = parseInt(month);
+            startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
+            endDate = new Date(Date.UTC(targetYear, targetMonth, 1));
+            dateFormat = "%Y-%m-%d";
+        } else {
+            startDate = new Date(Date.UTC(targetYear, 0, 1));
+            endDate = new Date(Date.UTC(targetYear + 1, 0, 1));
+            dateFormat = "%Y-%m";
+        }
 
         const report = await Order.aggregate([
             {
@@ -606,55 +653,138 @@ exports.getMonthlyReport = async (req, res) => {
                     closedAt: { $gte: startDate, $lt: endDate }
                 }
             },
+            // 🎯 จุดสำคัญที่ผมลืมใส่! ต้องแปลง _id เป็น String ก่อนเอาไป Lookup
+            { $addFields: { orderIdString: { $toString: "$_id" } } },
+            {
+                $lookup: {
+                    from: "orderitems",
+                    localField: "orderIdString", // เปลี่ยนมาใช้ฟิลด์ที่แปลงเป็น String แล้ว
+                    foreignField: "orderId",
+                    as: "detailedItems"
+                }
+            },
             {
                 $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$closedAt", timezone: "+07:00" } },
-                    totalAmount: { $sum: "$totalAmount" },
-                    totalDiscount: { $sum: "$discountAmount" },
-                    totalNet: { $sum: { $subtract: ["$totalAmount", "$discountAmount"] } },
+                    _id: { $dateToString: { format: dateFormat, date: "$closedAt", timezone: "Asia/Bangkok" } },
 
-                    // 💰 ช่องทางรวมทั้งหมดทั้งวัน
-                    cashTotal: {
-                        $sum: { $cond: [{ $in: ["$paymentMethod", ["cash", "เงินสด"]] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
-                    transferTotal: {
-                        $sum: { $cond: [{ $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
-                    linemanTotal: {
-                        $sum: { $cond: [{ $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
+                    morningNet: { $sum: { $cond: [{ $eq: ["$shift", "morning"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    morningCash: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $eq: ["$paymentMethod", "cash"] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    morningTransfer: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    morningLineman: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
 
-                    // ☀️ ยอดรวมสุทธิแยกกะหลัก
-                    morningNet: { $sum: { $cond: [{ $eq: ["$shift", "morning"] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] } },
-                    afternoonNet: { $sum: { $cond: [{ $eq: ["$shift", "afternoon"] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] } },
+                    afternoonNet: { $sum: { $cond: [{ $eq: ["$shift", "afternoon"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    afternoonCash: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $eq: ["$paymentMethod", "cash"] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    afternoonTransfer: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    afternoonLineman: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
 
-                    // 🛠️ เพิ่มลอจิกเจาะลึก: ช่องทางชำระเงินของ "กะเช้า (Morning)"
-                    morningCash: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["cash", "เงินสด"]] }] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
-                    morningTransfer: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
-                    morningLineman: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
+                    totalNet: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] } },
+                    cashTotal: { $sum: { $cond: [{ $eq: ["$paymentMethod", "cash"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    transferTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    linemanTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
 
-                    // 🛠️ เพิ่มลอจิกเจาะลึก: ช่องทางชำระเงินของ "กะบ่าย (Afternoon)"
-                    afternoonCash: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["cash", "เงินสด"]] }] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
+                    discountOrders: {
+                        $push: {
+                            $cond: [
+                                { $gt: [{ $ifNull: ["$discountAmount", 0] }, 0] },
+                                { cashierName: "$cashierName", discount: "$discount", discountAmount: "$discountAmount", totalAmount: "$totalAmount", shift: "$shift" },
+                                "$$REMOVE"
+                            ]
+                        }
                     },
-                    afternoonTransfer: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
-                    },
-                    afternoonLineman: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }] }, { $subtract: ["$totalAmount", "$discountAmount"] }, 0] }
+                    allOrderItems: {
+                        $push: {
+                            items: "$detailedItems", // รอบนี้ข้อมูลมาเต็ม 100% แน่นอน
+                            shift: "$shift"
+                        }
                     }
                 }
             },
-            { $sort: { _id: 1 } }
+            { $sort: { _id: -1 } }
         ]);
 
         res.json(report);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getMenuReportDetail = async (req, res) => {
+    try {
+        const { year, month } = req.query;
+        const targetYear = parseInt(year) || new Date().getFullYear();
+        const targetMonth = parseInt(month) || (new Date().getMonth() + 1);
+        const startDate = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
+        const endDate = new Date(Date.UTC(targetYear, targetMonth, 1));
+
+        const report = await OrderItem.aggregate([
+            {
+                $lookup: {
+                    from: "orders",
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "orderData"
+                }
+            },
+            { $unwind: "$orderData" },
+            {
+                $match: {
+                    "orderData.status": "paid",
+                    "orderData.closedAt": { $gte: startDate, $lt: endDate }
+                }
+            },
+            { $unwind: { path: "$options", preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: {
+                        cat: { $ifNull: ["$categoryName", "ไม่ระบุหมวด"] },
+                        name: "$name",
+                        opt: { $ifNull: ["$options.label", "ปกติ"] }
+                    },
+                    totalQty: { $sum: "$quantity" }
+                }
+            },
+            { $sort: { totalQty: -1 } } // เรียงให้เสร็จจาก Backend
+        ]);
+        res.json(report);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 💰 ฟังก์ชันคำนวณยอดรวมสุทธิทั้งปี (หักส่วนลดแล้ว)
+exports.getYearlyTotal = async (req, res) => {
+    try {
+        const { year } = req.query;
+        const targetYear = parseInt(year) || new Date().getFullYear();
+
+        // ช่วงเวลาตั้งแต่ 1 ม.ค. ของปีนั้น จนถึง 1 ม.ค. ของปีถัดไป (UTC)
+        const startDate = new Date(Date.UTC(targetYear, 0, 1));
+        const endDate = new Date(Date.UTC(targetYear + 1, 0, 1));
+
+        const result = await Order.aggregate([
+            {
+                $match: {
+                    status: 'paid',
+                    closedAt: { $gte: startDate, $lt: endDate }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    yearlyTotal: {
+                        $sum: {
+                            $subtract: [
+                                "$totalAmount",
+                                { $ifNull: ["$discountAmount", 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        const yearlyTotal = result.length > 0 ? result[0].yearlyTotal : 0;
+        res.json({ yearlyTotal });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

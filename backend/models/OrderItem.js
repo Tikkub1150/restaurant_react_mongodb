@@ -6,6 +6,7 @@ const orderItemSchema = new mongoose.Schema({
     name: String,
     quantity: { type: Number, default: 1 },
     price: Number,
+    categoryName: String, // สำหรับเซฟเก็บชื่อหมวดหมู่ ณ ตอนนั้น (เช่น 'ต้ม/แกง')
 
     options: [{
         label: String,
@@ -14,12 +15,14 @@ const orderItemSchema = new mongoose.Schema({
 
     note: String,
     isEdited: { type: Boolean, default: false },
+    isPrinted: { type: Boolean, default: false },
     oldVersion: {
         name: String,
         quantity: Number,
         note: String,
         options: String
     },
+
 
     status: {
         type: String,

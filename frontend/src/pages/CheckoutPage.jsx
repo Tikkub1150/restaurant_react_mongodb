@@ -226,7 +226,7 @@ const CheckoutPage = () => {
             </div>
 
             {/* 9. ปุ่มพิมพ์บิล Preview (ยังสั่งพิมพ์ได้เหมือนเดิม 100%) */}
-            <button onClick={handlePrint} className="mt-6 no-print text-gray-300 text-[10px] font-bold uppercase py-6 border-t w-full">
+            <button onClick={handlePrint} className="mt-6 no-print text-gray-300 text-[15px] font-bold uppercase py-6 border-t w-full">
                 🖨️ พิมพ์ใบสรุปรายการ (Preview)
             </button>
 
@@ -290,13 +290,23 @@ const CheckoutPage = () => {
             )}
 
             <style dangerouslySetInnerHTML={{ __html: `
-                @media print {
-                    body * { visibility: hidden; }
-                    #print-area, #print-area * { visibility: visible; }
-                    #print-area { position: absolute; left: 0; top: 0; width: 100%; border: none; }
-                    .no-print { display: none !important; }
-                }
-            `}} />
+    @media print {
+        body * { visibility: hidden; }
+        #print-area, #print-area * { visibility: visible; }
+        
+        #print-area { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            border: none;
+            /* 🎯 นี่คือท่าไม้ตาย: ขยายพื้นที่ทั้งหมดด้วย zoom */
+            zoom: 150%; 
+        }
+
+        .no-print { display: none !important; }
+    }
+`}} />
         </div>
     );
 };
