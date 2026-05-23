@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Table = require('../models/Table');
 
+
 const { sendTelegramNotification } = require('../services/telegramService');
 
 exports.getOrdersByTable = async (req, res) => {
@@ -382,7 +383,6 @@ exports.confirmOrderPrinting = async (req, res) => {
             const updateFields = { status: 'printed' };
             return OrderItem.findByIdAndUpdate(item._id, {
                 $set: updateFields,
-                $inc: { printCount: 1 }
             });
         });
         await Promise.all(updatePromises);
@@ -524,7 +524,7 @@ exports.closeOrder = async (req, res) => {
                     const optionsStr = item.options && item.options.length > 0
                         ? ` (${item.options.map(o => o.label).join(', ')})`
                         : '';
-                    return `- ${item.name}${optionsStr} x${item.quantity} (แก้มาแล้ว ${item.printCount} ครั้ง)`;
+                    return `- ${item.name}${optionsStr} x${item.quantity}`;
                 }).join('\n')
                 : '- ไม่มีรายการแก้ไข';
 
@@ -681,7 +681,8 @@ exports.getMonthlyReport = async (req, res) => {
                     cashTotal: { $sum: { $cond: [{ $eq: ["$paymentMethod", "cash"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     transferTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     linemanTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
-
+                    totalBills: { $sum: 1 },
+                    totalItems: { $sum: { $size: "$detailedItems" } },
                     discountOrders: {
                         $push: {
                             $cond: [
@@ -694,7 +695,16 @@ exports.getMonthlyReport = async (req, res) => {
                     allOrderItems: {
                         $push: {
                             items: "$detailedItems", // รอบนี้ข้อมูลมาเต็ม 100% แน่นอน
-                            shift: "$shift"
+                            shift: "$shift",
+                            closedAt: "$closedAt"
+                        }
+                    },
+                    orderTimes: {
+                        $push: {
+                            closedAt: "$closedAt",
+                            shift: "$shift",
+                            // 🎯 แก้เป็น detailedItems เพื่อให้บวกจำนวนจานที่สั่งมาทั้งหมดในบิลนั้นได้เป๊ะๆ
+                            totalItems: { $sum: "$detailedItems.quantity" }
                         }
                     }
                 }

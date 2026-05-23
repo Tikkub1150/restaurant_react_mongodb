@@ -87,7 +87,19 @@ describe('Full RESTful APIs Test for All Models', () => {
 
         it('ควรจะสร้างโต๊ะทั้งหมดได้ในครั้งเดียว (Bulk POST)', async () => {
             const { sendTelegramNotification } = require('../services/telegramService');
-            sendTelegramNotification('general', 'generalDeleteMsg');
+            await sendTelegramNotification('general', 'generalDeleteMsg');
+        });
+        it('เช็คบิล (Bulk POST)', async () => {
+            const { sendTelegramNotification } = require('../services/telegramService');
+            const checkoutMsg = `
+🔔 *เช็คบิลปิดโต๊ะ*
+📍 *โต๊ะ:* โต๊ะ 'ทั่วไป'}
+💳 *ชำระโดย:*  'โอน (PromptPay)'}
+💰 *จำนวนเงินรวม:*`
+
+
+            // 4. ส่งออกไปที่ห้องแชทเช็คบิล
+            await sendTelegramNotification('checkout', 'checkoutMsg');
         });
     });
     describe('confirmOrderPrinting', () => {

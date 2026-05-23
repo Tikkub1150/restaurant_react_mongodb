@@ -27,17 +27,17 @@ const AdminLayout = () => {
             </main>
 
             {/* ปุ่ม Logout แบบจางๆ เผื่อพี่อยากล้างเครื่อง */}
-            <button
-                onClick={() => {
-                    if(window.confirm('ยืนยันออกจากระบบ?')){
-                        localStorage.removeItem('adminAuthData');
-                        window.location.href = '/admin/login';
-                    }
-                }}
-                className="fixed bottom-6 left-6 bg-white/80 backdrop-blur-md text-gray-400 text-[9px] font-black px-4 py-2 rounded-full shadow-sm border border-gray-100 z-50 uppercase tracking-tighter"
-            >
-                Sign Out
-            </button>
+            {/*<button*/}
+            {/*    onClick={() => {*/}
+            {/*        if(window.confirm('ยืนยันออกจากระบบ?')){*/}
+            {/*            localStorage.removeItem('adminAuthData');*/}
+            {/*            window.location.href = '/admin/login';*/}
+            {/*        }*/}
+            {/*    }}*/}
+            {/*    className="fixed bottom-6 left-6 bg-white/80 backdrop-blur-md text-gray-400 text-[9px] font-black px-4 py-2 rounded-full shadow-sm border border-gray-100 z-50 uppercase tracking-tighter"*/}
+            {/*>*/}
+            {/*    Sign Out*/}
+            {/*</button>*/}
         </div>
     );
 };

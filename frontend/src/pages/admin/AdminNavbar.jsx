@@ -9,8 +9,7 @@ const AdminNavbar = () => {
     const isActive = (path) => location.pathname.includes(path) ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800';
 
     return (
-        <nav className="bg-gray-900 text-white px-3 py-2 flex justify-between items-center shadow-md sticky top-0 z-[100]">
-            {/* ฝั่งซ้าย: โลโก้และชื่อย่อ */}
+        <nav className="bg-gray-900 text-white px-3 py-2 flex justify-between items-center shadow-md sticky top-0 z-40">            {/* ฝั่งซ้าย: โลโก้และชื่อย่อ */}
             <div
                 onClick={() => window.location.reload()}
                 className="cursor-pointer flex items-center gap-1.5"

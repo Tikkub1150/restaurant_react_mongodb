@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+
 const apiBaseUrl = process.env.REACT_APP_API_URL;
 
 const MonthlyReport = () => {
     const [report, setReport] = useState([]);
     const [year, setYear] = useState(new Date().getFullYear());
-    // 🗓️ ตั้งต้นเป็นเดือนปัจจุบัน แต่รอบนี้สามารถเคลียร์เป็นค่าว่าง "" เพื่อดูทั้งปีได้
     const [month, setMonth] = useState(new Date().getMonth() + 1);
 
     // 📊 ระบบ Popup แยกสถานะ
@@ -16,13 +16,20 @@ const MonthlyReport = () => {
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [expandedItem, setExpandedItem] = useState(null);
 
+    // 🔍 State ใหม่สำหรับฟีเจอร์กราฟแท่ง
+    const [timeSlotDetail, setTimeSlotDetail] = useState(null);
+    const [searchMenu, setSearchMenu] = useState("");
+
+    // รีเซ็ตค่าต่างๆ เมื่อเปลี่ยนวัน หรือเปลี่ยนกะ
     useEffect(() => {
         setShowDiscountDetail(false);
         setExpandedCategory(null);
         setExpandedItem(null);
+        setTimeSlotDetail(null);
+        setSearchMenu("");
     }, [selected, popupShift]);
 
-    // 🔄 ดึงข้อมูลรายงาน (รองรับทั้งเคสมีเดือน และเคสเดือนเป็นค่าว่าง)
+    // 🔄 ดึงข้อมูลรายงาน
     useEffect(() => {
         const fetchReport = async () => {
             try {
@@ -83,6 +90,135 @@ const MonthlyReport = () => {
     const metrics = getDisplayMetrics();
     const info = (month && selected) ? getDayInfo(selected._id) : null;
 
+    // 📊 ฟังก์ชันคำนวณข้อมูลกราฟแท่งคู่ (รองรับการกรองชื่อเมนู)
+    const getChartData = () => {
+        if (!selected || !selected.orderTimes) return [];
+
+        const filteredOrders = selected.orderTimes.filter(o => popupShift === 'all' || o.shift === popupShift);
+        const timeMap = {};
+        const searchTerm = searchMenu.toLowerCase().trim();
+
+        // ⏱️ ดึงค่าจาก env ถ้าไม่มีให้ Default เป็น 60 นาที (1 ชั่วโมง)
+        const interval = parseInt(process.env.REACT_APP_CHART_INTERVAL_MINUTES) || 60;
+
+        filteredOrders.forEach((order) => {
+            if (!order.closedAt) return;
+
+            const correspondingGroup = selected.allOrderItems?.find(g => g.closedAt === order.closedAt);
+            const items = correspondingGroup?.items || [];
+
+            const matchingItems = searchTerm !== ""
+                ? items.filter(item => {
+                    const nameMatch = item.name?.toLowerCase().includes(searchTerm);
+                    const optMatch = item.options?.some(o => o.label.toLowerCase().includes(searchTerm));
+                    return nameMatch || optMatch;
+                })
+                : items;
+
+            const d = new Date(order.closedAt);
+            const h = d.getHours().toString().padStart(2, '0');
+            const m = d.getMinutes();
+
+            // 🕒 คำนวณปัดเศษเวลาอัตโนมัติตาม env
+            let timeKey = "";
+            if (interval >= 60) {
+                timeKey = `${h}:00`;
+            } else {
+                const roundedM = Math.floor(m / interval) * interval;
+                timeKey = `${h}:${roundedM.toString().padStart(2, '0')}`;
+            }
+
+            if (!timeMap[timeKey]) {
+                timeMap[timeKey] = { time: timeKey, bills: 0, items: 0 };
+            }
+
+            if (searchTerm === "") {
+                timeMap[timeKey].bills += 1;
+                timeMap[timeKey].items += items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+            } else {
+                if (matchingItems.length > 0) {
+                    timeMap[timeKey].bills += 1;
+                    timeMap[timeKey].items += matchingItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                }
+            }
+        });
+
+        return Object.values(timeMap).sort((a, b) => a.time.localeCompare(b.time));
+    };
+
+    const chartData = getChartData();
+
+    // 🎯 ฟังก์ชันเมื่อกดที่แท่งกราฟ เพื่อดูว่าสั่งอะไรเยอะสุด
+    const handleBarClick = (timeKey) => {
+        if (!selected.allOrderItems) return;
+
+        const itemsInSlot = {};
+
+        // ⏱️ ดึงค่าจาก env ตัวเดียวกัน
+        const interval = parseInt(process.env.REACT_APP_CHART_INTERVAL_MINUTES) || 60;
+
+        selected.allOrderItems.forEach(group => {
+            if (!group.closedAt) return;
+            if (popupShift !== 'all' && group.shift !== popupShift) return;
+
+            const d = new Date(group.closedAt);
+            const h = d.getHours().toString().padStart(2, '0');
+            const m = d.getMinutes();
+
+            // 🕒 คำนวณปัดเศษเวลาให้ตรงกับกราฟโดยใช้ env
+            let currentSlotKey = "";
+            if (interval >= 60) {
+                currentSlotKey = `${h}:00`;
+            } else {
+                const roundedM = Math.floor(m / interval) * interval;
+                currentSlotKey = `${h}:${roundedM.toString().padStart(2, '0')}`;
+            }
+
+            if (currentSlotKey === timeKey) {
+                group.items.forEach(item => {
+                    const searchTerm = searchMenu.toLowerCase().trim();
+                    const nameMatch = item.name?.toLowerCase().includes(searchTerm);
+                    const optMatch = item.options?.some(o => o.label.toLowerCase().includes(searchTerm));
+
+                    if (searchTerm !== "" && !nameMatch && !optMatch) {
+                        return;
+                    }
+
+                    const optStr = (item.options && item.options.length > 0)
+                        ? ` (${item.options.map(o => o.label).join(', ')})`
+                        : '';
+                    const fullKey = `${item.name}${optStr}`;
+
+                    if (!itemsInSlot[fullKey]) {
+                        itemsInSlot[fullKey] = { name: item.name, options: optStr, qty: 0 };
+                    }
+                    itemsInSlot[fullKey].qty += (item.quantity || 0);
+                });
+            }
+        });
+
+        const sortedItems = Object.values(itemsInSlot).sort((a, b) => b.qty - a.qty);
+        setTimeSlotDetail({ time: timeKey, items: sortedItems });
+    };
+
+    // 🧮 คำนวณยอดรวมรายได้ทั้งหมด และ นับจำนวนวันที่ขายจริง
+    const summaryData = report.reduce((acc, day) => {
+        acc.morningTotal += (day.morningNet || 0);
+        acc.afternoonTotal += (day.afternoonNet || 0);
+        acc.overallTotal += (day.totalNet || 0);
+
+        // นับเป็นวันเปิดขายจริงเมื่อยอดรวมสุทธิประจำวันมากกว่า 0
+        if ((day.totalNet || 0) > 0) {
+            acc.activeDaysCount += 1;
+        }
+        return acc;
+    }, { morningTotal: 0, afternoonTotal: 0, overallTotal: 0, activeDaysCount: 0 });
+
+    // คำนวณยอดเฉลี่ยตามวันที่ขายจริง
+    const avgMorning = summaryData.activeDaysCount > 0 ? summaryData.morningTotal / summaryData.activeDaysCount : 0;
+    const avgAfternoon = summaryData.activeDaysCount > 0 ? summaryData.afternoonTotal / summaryData.activeDaysCount : 0;
+    const avgOverall = summaryData.activeDaysCount > 0 ? summaryData.overallTotal / summaryData.activeDaysCount : 0;
+
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-xs font-bold text-gray-900">
             {/* ส่วนหัวและตัวเลือกเดือน/ปี */}
@@ -94,16 +230,15 @@ const MonthlyReport = () => {
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        className="flex-grow bg-gray-50 p-2 rounded-xl border border-gray-300 font-black outline-none"
+                        className="flex-grow bg-gray-50 p-2 rounded-xl border border-gray-300 font-black outline-none text-center"
                     >
                         {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y + 543}</option>)}
                     </select>
 
-                    {/* 🔥 เพิ่มตัวเลือกค่าว่าง (ทั้งปี) ตรงนี้ */}
                     <select
                         value={month}
                         onChange={(e) => setMonth(e.target.value ? Number(e.target.value) : "")}
-                        className="flex-grow bg-gray-50 p-2 rounded-xl border border-gray-300 font-black outline-none"
+                        className="flex-grow bg-gray-50 p-2 rounded-xl border border-gray-300 font-black outline-none text-center"
                     >
                         <option value="">🗓️ ทั้งปี (ดูรายเดือน)</option>
                         {Array.from({ length: 12 }, (_, i) => (
@@ -121,7 +256,6 @@ const MonthlyReport = () => {
                     <table className="w-full text-left border-collapse text-[11px]">
                         <thead>
                         <tr className="bg-gray-900 text-white text-center">
-                            {/* 🔥 หัวตารางเปลี่ยนตามโหมด: ถ้ามีเดือนแสดง "วันที่" ถ้าไม่มีแสดง "เดือน" */}
                             <th className="p-2 border border-gray-800 w-24">{month ? 'วันที่' : 'เดือน'}</th>
                             <th className="p-2 border border-gray-800 bg-amber-600/20 text-amber-500">☀️ เช้า</th>
                             <th className="p-2 border border-gray-800 bg-blue-600/10 text-blue-500">🌤️ บ่าย</th>
@@ -133,12 +267,10 @@ const MonthlyReport = () => {
                             const dayInfo = month ? getDayInfo(day._id) : null;
                             return (
                                 <tr key={day._id} className="border-b border-gray-200 hover:bg-gray-50/80 transition-colors">
-                                    {/* 🔥 แถวแรกเปลี่ยนตามโหมด: รายวัน VS ชื่อเดือนเต็ม */}
                                     <td className={`p-2 text-center border-r font-black ${(month && dayInfo?.isWeekend) ? 'bg-red-50 text-red-600' : 'text-gray-700'}`}>
                                         {month ? (
                                             `${dayInfo?.dateNum} (${dayInfo?.dayName})`
                                         ) : (
-                                            // บวกวันที่สอง (-02) เพื่อป้องกันปัญหาเรื่องเขตเวลาเขยิบถอยหลัง
                                             new Date(day._id + "-02").toLocaleString('th-TH', { month: 'long' })
                                         )}
                                     </td>
@@ -154,6 +286,45 @@ const MonthlyReport = () => {
                                 </tr>
                             );
                         })}
+
+                        {/* 📊 ส่วนสรุปท้ายตาราง (แสดงเมื่อมีข้อมูล) */}
+                        {report.length > 0 && (
+                            <>
+                                {/* 🛠️ แถวสรุปรวมรายได้ทั้งหมด */}
+                                <tr className="bg-gray-100 font-black text-gray-900 border-t-2 border-gray-300">
+                                    <td className="p-2 text-center border-r font-black bg-gray-200/70 text-gray-800">
+                                        รวมทั้งหมด
+                                    </td>
+                                    <td className="p-2 text-right border-r font-black text-amber-800 bg-amber-100/40">
+                                        {summaryData.morningTotal > 0 ? summaryData.morningTotal.toLocaleString() : '-'}
+                                    </td>
+                                    <td className="p-2 text-right border-r font-black text-blue-800 bg-blue-100/20">
+                                        {summaryData.afternoonTotal > 0 ? summaryData.afternoonTotal.toLocaleString() : '-'}
+                                    </td>
+                                    <td className="p-2 text-right font-black text-green-700 bg-green-100/40 text-[12px]">
+                                        {summaryData.overallTotal > 0 ? summaryData.overallTotal.toLocaleString() : '-'}
+                                    </td>
+                                </tr>
+
+                                {/* 🛠️ แถวสรุปรายได้เฉลี่ยประจำวัน */}
+                                <tr className="bg-gray-50 font-black text-gray-900 border-t border-gray-200">
+                                    <td className="p-1.5 text-center border-r font-black bg-gray-100/50 text-gray-500 leading-tight">
+                                        <div>รายได้เฉลี่ย</div>
+                                        <div className="text-[8px] text-gray-400 font-bold">({summaryData.activeDaysCount} วันที่ขาย)</div>
+                                    </td>
+                                    <td className="p-2 text-right border-r font-black text-amber-600 bg-amber-50/20">
+                                        {avgMorning > 0 ? Math.round(avgMorning).toLocaleString() : '-'}
+                                    </td>
+                                    <td className="p-2 text-right border-r font-black text-blue-600 bg-blue-50/10">
+                                        {avgAfternoon > 0 ? Math.round(avgAfternoon).toLocaleString() : '-'}
+                                    </td>
+                                    <td className="p-2 text-right font-black text-green-600 bg-green-50/20">
+                                        {avgOverall > 0 ? Math.round(avgOverall).toLocaleString() : '-'}
+                                    </td>
+                                </tr>
+                            </>
+                        )}
+
                         {report.length === 0 && (
                             <tr>
                                 <td colSpan="4" className="text-center py-8 text-gray-400">ไม่มีข้อมูลบันทึกไว้ครับ 📭</td>
@@ -164,7 +335,7 @@ const MonthlyReport = () => {
                 </div>
             </div>
 
-            {/* 📥 หน้าต่าง POPUP (โครงสร้างเดิมเด๊ะ ทำงานร่วมกันได้สมบูรณ์) */}
+            {/* 📥 หน้าต่าง POPUP หลัก */}
             {selected && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-3xs flex items-center justify-center p-3 z-50 animate-fade-in">
                     <div className="bg-white rounded-2xl max-w-sm w-full shadow-xl flex flex-col max-h-[85vh] overflow-hidden border border-gray-100">
@@ -173,7 +344,6 @@ const MonthlyReport = () => {
                             <div>
                                 <span className="text-xs font-black tracking-wide text-amber-400 block">{getPopupTitle()}</span>
                                 <span className="text-[10px] text-gray-400 font-bold">
-                                    {/* 🔥 ปรับตัวหนังสือหัว Popup เล็กน้อยให้เหมาะกับโหมดรายเดือน */}
                                     {month ? (
                                         `ประจำวันที่ ${info?.dateNum} (${info?.dayName}) ${new Date(selected._id).toLocaleDateString('th-TH', {month: 'short', year: 'numeric'})}`
                                     ) : (
@@ -181,7 +351,7 @@ const MonthlyReport = () => {
                                     )}
                                 </span>
                             </div>
-                            <button onClick={() => setSelected(null)} className="text-white text-lg font-black px-2">×</button>
+                            <button onClick={() => setSelected(null)} className="text-white text-lg font-black px-2 active:scale-95">×</button>
                         </div>
 
                         <div className="p-4 bg-gray-50 space-y-3 overflow-y-auto flex-1 no-scrollbar">
@@ -261,7 +431,7 @@ const MonthlyReport = () => {
                                     <span className="font-black text-green-600">{metrics.lineman.toLocaleString()}.-</span>
                                 </div>
 
-                                {/* 🎯 ส่วนการเจาะลึกอาหารขายดีประจำช่วงเวลา (เมื่อกดดูรายเดือน เมนูก็จะม้วนรวมยอดขายทั้งเดือนมาเรียงลำดับให้ทันที!) */}
+                                {/* 🎯 ส่วนการเจาะลึกอาหารขายดีประจำช่วงเวลา */}
                                 <div className="mt-4 pt-3 border-t border-dashed border-gray-200 text-left w-full">
                                     <span className="text-[10px] text-gray-400 block mb-2 font-black uppercase tracking-wider">
                                         📊 จำนวนจานแยกตามหมวดหมู่
@@ -321,8 +491,6 @@ const MonthlyReport = () => {
 
                                                     return (
                                                         <div key={idx} className="border border-gray-100 rounded-xl overflow-hidden bg-white shadow-3xs w-full">
-
-                                                            {/* LEVEL 1 */}
                                                             <div
                                                                 onClick={() => setExpandedCategory(isExpandedCat ? null : cat.name)}
                                                                 className="flex justify-between items-center p-2.5 bg-gray-50/50 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -338,7 +506,6 @@ const MonthlyReport = () => {
                                                                 </div>
                                                             </div>
 
-                                                            {/* LEVEL 2 */}
                                                             {isExpandedCat && (
                                                                 <div className="bg-white border-t divide-y divide-gray-100">
                                                                     {itemsList.map((sub, sIdx) => {
@@ -360,7 +527,6 @@ const MonthlyReport = () => {
                                                                                     </div>
                                                                                 </div>
 
-                                                                                {/* LEVEL 3 */}
                                                                                 {isExpandedItem && (
                                                                                     <div className="bg-gray-50/80 pb-2 px-4 space-y-1">
                                                                                         {optsList.map(([optName, count], oIdx) => (
@@ -384,14 +550,139 @@ const MonthlyReport = () => {
                                     })()}
                                 </div>
                             </div>
+
+                            {/* 📈 บล็อกแสดงกราฟแท่งคู่ดีไซน์พรีเมียม พร้อมระบบฟิลเตอร์ค้นหาเมนูอาหาร */}
+                            {chartData.length > 0 && (
+                                <div className="mt-4 pt-3 border-t border-dashed border-gray-200 w-full">
+                                    <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-3xs mt-2">
+                                        <div className="border-b pb-2 mb-3 space-y-2">
+                                            <div className="flex justify-between items-end">
+                                                <div>
+                                                    <span className="text-[10px] text-gray-800 font-black uppercase tracking-wider block">
+                                                        📈 ช่วงเวลาพีก (ทุก {process.env.REACT_APP_CHART_INTERVAL_MINUTES || 60} นาที)
+                                                    </span>
+                                                    <span className="text-[9px] text-gray-400 font-bold">คลิกที่แท่งเพื่อดูรายการอาหารได้เลย</span>
+                                                </div>
+                                                <div className="flex flex-col gap-0.5 items-end text-[8px] font-black shrink-0">
+                                                    <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-xs"></span> บิลโต๊ะ</span>
+                                                    <span className="flex items-center gap-1"><span className="w-2 h-2 bg-orange-500 rounded-xs"></span> จำนวนจาน</span>
+                                                </div>
+                                            </div>
+
+                                            {/* 🔍 ช่องอินพุตฟิลเตอร์พิมพ์ค้นหาเมนู */}
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={searchMenu}
+                                                    onChange={(e) => setSearchMenu(e.target.value)}
+                                                    placeholder="🔍 พิมพ์ชื่อเมนูเพื่อกรองกราฟ..."
+                                                    className="w-full bg-gray-50 p-2 rounded-lg border border-gray-200 font-bold text-[10px] outline-none focus:border-gray-400 transition-colors"
+                                                />
+                                                {searchMenu && (
+                                                    <button
+                                                        onClick={() => setSearchMenu("")}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-black text-[11px]"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* พื้นที่สร้างกราฟ จัดเรียงชิดซ้าย (justify-start) และนำ flex-1 ออก เพื่อให้แคบลง */}
+                                        <div className="h-32 flex items-end gap-1 overflow-x-auto no-scrollbar w-full pt-6 justify-start pb-1">
+                                            {chartData.map((data, index) => {
+                                                const maxBills = Math.max(...chartData.map(d => d.bills), 1);
+                                                const maxItems = Math.max(...chartData.map(d => d.items), 1);
+
+                                                // ลดความสูงลงมาที่ 70% เพื่อให้ตัวเลขด้านบนไม่หลุดกรอบ
+                                                const billHeight = (data.bills / maxBills) * 70;
+                                                const itemHeight = (data.items / maxItems) * 70;
+
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        onClick={() => handleBarClick(data.time)}
+                                                        className="flex flex-col items-center justify-end h-full min-w-[26px] relative cursor-pointer hover:bg-gray-100/80 rounded-t-lg transition-colors p-0.5"
+                                                    >
+                                                        {/* แท่งคู่ขนานและตัวเลขยอดขายด้านบนแท่งแบบถาวร */}
+                                                        <div className="flex items-end gap-[3px] w-full h-full justify-center">
+
+                                                            {/* แท่งฝั่งบิลโต๊ะ (สีน้ำเงิน) */}
+                                                            <div className="flex flex-col items-center justify-end h-full w-2.5">
+                                                                <span className="text-[7px] font-black text-blue-600 mb-0.5">{data.bills}</span>
+                                                                <div className="w-full bg-blue-500 rounded-t-xs transition-all" style={{ height: `${Math.max(billHeight, 4)}%` }}></div>
+                                                            </div>
+
+                                                            {/* แท่งฝั่งจำนวนจาน (สีส้ม) */}
+                                                            <div className="flex flex-col items-center justify-end h-full w-2.5">
+                                                                <span className="text-[7px] font-black text-orange-600 mb-0.5">{data.items}</span>
+                                                                <div className="w-full bg-orange-500 rounded-t-xs transition-all" style={{ height: `${Math.max(itemHeight, 4)}%` }}></div>
+                                                            </div>
+
+                                                        </div>
+
+                                                        {/* เส้นแบ่งแกน X บอกค่าเวลา */}
+                                                        <span className="text-[8px] font-bold text-gray-400 mt-1 shrink-0">{data.time}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
 
+                        {/* ปุ่มปิดท้าย Popup หลัก */}
                         <div className="p-3 bg-white border-t shrink-0">
                             <button
                                 onClick={() => setSelected(null)}
                                 className="w-full py-2.5 bg-gray-950 active:bg-gray-900 text-white rounded-xl font-black shadow-md text-center text-xs"
                             >
                                 ตกลงเรียบร้อย
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 📋 Popup ซ้อน: แสดงรายละเอียดเมนูในแต่ละช่วงเวลา */}
+            {timeSlotDetail && (
+                <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[70vh]">
+                        <div className="p-3 bg-gray-900 text-white flex justify-between items-center shrink-0">
+                            <div>
+                                <h4 className="text-xs font-black">🔥 ยอดสั่งช่วงเวลา {timeSlotDetail.time} น.</h4>
+                                {searchMenu.trim() !== "" && (
+                                    <span className="text-[8px] text-amber-400 font-bold block mt-0.5">กรองเฉพาะคำว่า: "{searchMenu}"</span>
+                                )}
+                            </div>
+                            <button onClick={() => setTimeSlotDetail(null)} className="text-lg font-black px-2 active:scale-95">×</button>
+                        </div>
+                        <div className="overflow-y-auto p-2 space-y-1.5 flex-1 no-scrollbar bg-gray-50">
+                            {timeSlotDetail.items.length > 0 ? (
+                                timeSlotDetail.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between items-start p-2 bg-white rounded-xl border border-gray-100 shadow-3xs">
+                                        <div className="flex-1 pr-2">
+                                            <div className="text-[11px] font-black text-gray-800">🔹 {item.name}</div>
+                                            <div className="text-[9px] text-gray-500 font-bold leading-tight pl-3">{item.options}</div>
+                                        </div>
+                                        <div className="text-[11px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100 whitespace-nowrap">
+                                            {item.qty} จาน
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-10 text-gray-400 text-[10px]">ไม่พบเมนูดังกล่าวในช่วงเวลานี้ครับ</div>
+                            )}
+                        </div>
+                        <div className="p-2 border-t bg-white shrink-0">
+                            <button
+                                onClick={() => setTimeSlotDetail(null)}
+                                className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-[10px] font-black active:scale-95 transition-all shadow-xs"
+                            >
+                                ปิดหน้าต่างข้อมูล
                             </button>
                         </div>
                     </div>

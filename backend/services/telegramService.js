@@ -5,13 +5,13 @@ const BOT_TOKEN = '8163361905:AAFR8DJdRVt5kUC3FP4NRJfQPftzdwLKZXM';
 
 exports.sendTelegramNotification = async (type, message) => {
     try {
-        const config = await TelegramConfig.findOne({ type });
-        if (!config || !config.chat_id) {
+        const config = await TelegramConfig.findOne({ type }).lean();
+        if (!config || (!config.chat_id && config.token)) {
             console.error(`❌ ไม่พบ Chat ID สำหรับประเภท: ${type}`);
             return;
         }
 
-        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+        const url = `https://api.telegram.org/bot${config.token}/sendMessage`;
         await axios.post(url, {
             chat_id: config.chat_id,
             text: message,
