@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
+// 🔀 ดึง ID โต๊ะแยกบิลจาก .env
+const SPLIT_TABLE_ID = process.env.REACT_APP_SPLIT_TABLE_ID || "split_table_001";
+
 const OrderPage = () => {
     const { tableId } = useParams();
     const navigate = useNavigate();
@@ -26,6 +29,11 @@ const OrderPage = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editItemId, setEditItemId] = useState(null);
 
+    // 🔀 State สำหรับระบบแยกบิล
+    const [isSplitMode, setIsSplitMode] = useState(false);
+    const [selectedSplitItemIds, setSelectedSplitItemIds] = useState([]);
+    const [isSplitTableReady, setIsSplitTableReady] = useState(false); // เช็คว่ามีโต๊ะแยกบิลจริงไหม
+
     const fetchData = async () => {
         try {
             const [catRes, productRes, tableRes, orderRes, allTablesRes] = await Promise.all([
@@ -42,12 +50,24 @@ const OrderPage = () => {
 
             setMenus(productRes.data.sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0)));
             setTableInfo(tableRes.data);
-            setAllTables(allTablesRes.data);
+
+            const fetchedTables = allTablesRes.data;
+            setAllTables(fetchedTables);
             setExistingOrders(orderRes.data || []);
 
             if (orderRes.data?.length > 0) {
                 setTableNote(orderRes.data[0].tableNote || "");
             }
+
+            // 🔀 ตรวจสอบว่าโต๊ะแยกบิลมีอยู่ในระบบจริงๆ หรือไม่
+            const splitTableExists = fetchedTables.some(t => t._id === SPLIT_TABLE_ID);
+            setIsSplitTableReady(splitTableExists);
+            // if (!splitTableExists) {
+            //     console.log(`❌ [Split Bill Error] ปิดปุ่มแยกบิล: ไม่พบโต๊ะ ID => "${SPLIT_TABLE_ID}" ในระบบ`);
+            //     console.log(`👉 วิธีแก้: ไปสร้างโต๊ะสำหรับแยกบิล แล้วเอา ObjectId (24 หลัก) มาใส่ในไฟล์ .env ตัวแปร REACT_APP_SPLIT_TABLE_ID`);
+            // } else {
+            //     console.log(`✅ [Split Bill] โต๊ะแยกบิลพร้อมใช้งาน (ID: ${SPLIT_TABLE_ID})`);
+            // }
 
             setLoading(false);
         } catch (err) {
@@ -58,6 +78,8 @@ const OrderPage = () => {
 
     useEffect(() => {
         fetchData();
+        setIsSplitMode(false);
+        setSelectedSplitItemIds([]);
     }, [tableId]);
 
     const isLineman = tableInfo?.display?.zone === 'lineman';
@@ -77,10 +99,8 @@ const OrderPage = () => {
     const handleSaveOrder = async () => {
         try {
             setLoading(true);
-
             const orderId = existingOrders[0]?._id;
 
-            // 1. สร้าง Base Data ของไอเทมตามปกติ
             const itemData = {
                 productId: selectedProduct._id,
                 name: selectedProduct.name,
@@ -88,25 +108,15 @@ const OrderPage = () => {
                 price: selectedProduct.price + selectedOptions.reduce((s, o) => s + (Number(o.extraPrice) || 0), 0),
                 options: selectedOptions,
                 note: note,
-                status: 'pending', // เด้งกลับมาเป็น pending เพื่อรอปริ้นใหม่ชัวร์ๆ
+                status: 'pending',
                 printer_name: selectedProduct.printer_name,
-                categoryName: selectedProduct.category,   // ดึงชื่อหมวดหมู่จากตัวสินค้าที่กำลังกดสั่ง
+                categoryName: selectedProduct.category,
             };
 
-
-            // 🎯 [จุดแก้ไข] เช็คว่าถ้าเป็นการแก้ไขไอเทมที่เคยพิมพ์ไปแล้ว (status เดิมเป็น printed)
-            // หาไอเทมเดิมในลิสต์เพื่อเช็คสถานะ หรือใช้ Flag จากหน้าแก้ไขของพี่ได้เลย
             const currentItem = existingOrders[0]?.items?.find(item => item._id === editItemId);
-            const isAlreadyPrinted = currentItem?.status === 'printed';
 
-
-
-            // 2. ยิง API บันทึกข้อมูลตามลอจิกเดิม
             if (isEditing) {
                 itemData.isEdited = true;
-                // if (isAlreadyPrinted && !itemData.isPrinted === false) {
-                //     itemData.isPrinted = true;
-                // }
                 await api.put(`/api/orders/item/${editItemId}`, itemData);
             } else {
                 if (orderId) {
@@ -117,6 +127,7 @@ const OrderPage = () => {
                         table_name: tableInfo?.table_name,
                         items: [itemData],
                         status: 'pending',
+                        shift: tableInfo?.session?.shift || 'error',
                         totalAmount: itemData.price * itemData.quantity,
                         tableNote
                     });
@@ -136,7 +147,6 @@ const OrderPage = () => {
         if (!window.confirm(`ย้ายไปโต๊ะ ${newTable?.table_name}?`)) return;
         try {
             setLoading(true);
-            console.log("Moving table", { from: tableId, to: newTableId });
             await api.put(`/api/orders/move/${tableId}`, { newTableId, newTableName: newTable.table_name });
             navigate(`/order/${newTableId}`, { replace: true });
         } catch (err) {
@@ -152,11 +162,7 @@ const OrderPage = () => {
             if (!order) return alert("ไม่มีรายการ");
 
             await api.put(`/api/orders/update-note/${order._id}`, { tableNote });
-
-            // ลอจิกสั่งพิมพ์เดิมของพี่อลิสทำงานต่อ
             await api.put(`/api/orders/confirm-print/${order._id}`);
-            // alert('✅ ส่งพิมพ์แล้ว!');
-            // fetchData();
             navigate('/');
         } catch (err) {
             alert('❌ พิมพ์ไม่สำเร็จ');
@@ -215,28 +221,54 @@ const OrderPage = () => {
         }
     };
 
-    // 🎯 ฟังก์ชันอัปเดตหมายเหตุโต๊ะไปยังหลังบ้านเมื่อพิมพ์เสร็จ
     const handleUpdateTableNote = async (value) => {
-        // ดักเช็คก่อนว่ามีรายการเล่มออเดอร์ (orderId) หรือไม่ ถ้าไม่มีไม่ยิงพร่ำเพรื่อ
         const orderId = existingOrders?.[0]?._id;
         if (!orderId) return;
-
         try {
-            // console.log(orderId, value);
             await api.put(`/api/orders/update-note/${orderId}`, { tableNote: value });
-            // console.log("บันทึกหมายเหตุโต๊ะสำเร็จ");
         } catch (err) {
             console.error("บันทึกหมายเหตุโต๊ะล้มเหลว:", err);
         }
     };
 
+    // 🔀 ฟังก์ชันสำหรับระบบแยกบิล
+    const toggleSplitItem = (itemId) => {
+        if (selectedSplitItemIds.includes(itemId)) {
+            setSelectedSplitItemIds(selectedSplitItemIds.filter(id => id !== itemId));
+        } else {
+            setSelectedSplitItemIds([...selectedSplitItemIds, itemId]);
+        }
+    };
+
+    const getSplitTotal = () => {
+        const splitItems = existingOrders.flatMap(o => o.items).filter(i => selectedSplitItemIds.includes(i._id));
+        return splitItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    };
+
+    const handleSplitCheckoutClick = () => {
+        const splitItems = existingOrders.flatMap(o => o.items).filter(i => selectedSplitItemIds.includes(i._id));
+        navigate(`/checkout/${tableId}`, {
+            state: {
+                cart: splitItems,
+                total: getSplitTotal(),
+                tableInfo: tableInfo,
+                isSplitBill: true,
+                originalTableId: tableId
+            }
+        });
+    };
+
     if (loading) return <div className="p-10 text-center font-bold text-gray-500 uppercase tracking-widest">Loading...</div>;
 
     const hasItems = existingOrders.some(o => o.items.length > 0);
-
     const hasItemsPending = existingOrders.some(order =>
         order.items && order.items.some(item => item.status === 'pending' || item.status === 'printing')
     );
+    const currentItem = existingOrders[0]?.items?.find(item => item._id === editItemId);
+
+    // 🔀 เพิ่ม 2 บรรทัดนี้: นับจำนวนรายการอาหาร ว่ามีกี่แถว
+    const totalItemRows = existingOrders.reduce((count, o) => count + (o.items?.length || 0), 0);
+    const canSplit = totalItemRows > 1; // ต้องมีมากกว่า 1 แถว ถึงจะอนุญาตให้แยกบิลได้
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50 pb-48 font-sans text-xs font-bold">
@@ -245,12 +277,9 @@ const OrderPage = () => {
                 <select
                     onChange={(e) => handleMoveTable(e.target.value)}
                     value={tableId}
-                    // ปรับความกว้างสูงสุดเพิ่มเล็กน้อย (max-w-[130px]) เพื่อให้เห็นชื่อกลุ่มกะและชื่อโต๊ะที่ยาวขึ้นได้ชัดเจนครับพี่
                     className="px-2 py-2 rounded-xl text-[11px] font-black outline-none bg-blue-50 text-blue-700 border border-blue-100 shrink-0 max-w-[130px]"
                 >
                     <option value={tableId}>📍 โต๊ะ {tableInfo?.table_name || ''}</option>
-
-                    {/* 🌅 กลุ่มช่วงเช้า (Morning Shift) */}
                     <optgroup label="☀️ ช่วงเช้า">
                         {allTables
                             .filter(t => t.session?.shift === 'morning' && t.table_status === 'available' && t._id !== tableId)
@@ -259,8 +288,6 @@ const OrderPage = () => {
                             ))
                         }
                     </optgroup>
-
-                    {/* 🌇 กลุ่มช่วงบ่าย (Afternoon Shift) */}
                     <optgroup label="🌚 ช่วงบ่าย">
                         {allTables
                             .filter(t => t.session?.shift === 'afternoon' && t.table_status === 'available' && t._id !== tableId)
@@ -282,9 +309,7 @@ const OrderPage = () => {
 
                 <button
                     onClick={handlePrintOrder}
-                    // 🎯 ถ้าไม่มีรายการ pending หรือ printing (hasItemsPending เป็น false) ให้เปิด disabled (ห้ามกด)
                     disabled={!hasItemsPending}
-                    // 🎯 ปรับสีปุ่มให้สลับตามเงื่อนไข hasItemsPending ด้วย พนักงานจะได้ดูง่ายๆ ครับ
                     className={`px-3.5 py-2 rounded-xl font-black text-[11px] shrink-0 transition-all ${
                         hasItemsPending
                             ? 'bg-orange-500 text-white shadow-md active:scale-95'
@@ -312,7 +337,6 @@ const OrderPage = () => {
                         onClick={() => { setSelectedProduct(product); setQuantity(1); setNote(""); setSelectedOptions([]); setIsEditing(false); setIsModalOpen(true); }}
                         className="bg-white rounded-xl shadow-2xs border border-gray-100 flex items-center p-1 active:scale-97 transition-all cursor-pointer text-left min-h-[72px] w-full gap-1.5 overflow-hidden"
                     >
-                        {/* รูปภาพขยายใหญ่ขึ้นเป็น w-16 h-16 ตามบรีฟ */}
                         <div className="w-16 h-16 bg-blue-50/50 rounded-lg flex items-center justify-center overflow-hidden shrink-0 relative border border-gray-50">
                             {product.image ? (
                                 <img
@@ -336,7 +360,6 @@ const OrderPage = () => {
                             </div>
                         </div>
 
-                        {/* ข้อความขวา: ชื่อเมนูใหญ่ขึ้นเป็น text-sm */}
                         <div className="flex flex-col justify-center min-w-0 flex-1 pr-0.5">
                             <span className="font-black text-gray-800 text-sm truncate leading-tight mb-0.5">
                                 {product.name}
@@ -350,48 +373,60 @@ const OrderPage = () => {
             </div>
 
             {/* 2. Cart & Checkout Panel (แผงสรุปรายการก้นจอ) */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.1)] rounded-t-2xl px-2 py-2.5 z-40 max-h-[45vh] flex flex-col border-t border-gray-100">
+            <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.1)] rounded-t-2xl px-2 py-2.5 z-40 max-h-[50vh] flex flex-col border-t border-gray-100">
                 <div className="overflow-y-auto flex-1 mb-2.5 no-scrollbar">
                     {hasItems && (
                         <div>
-                            {/* ขยายหัวข้อและปุ่มซ่อน/แสดง ให้ใหญ่ขึ้นเป็น text-sm */}
                             <div className="flex justify-between items-center mb-2 text-sm font-black uppercase text-gray-400">
-                                <span>รายการอาหารในโต๊ะ</span>
-                                <button onClick={() => setShowExisting(!showExisting)} className="text-blue-600 underline">{showExisting ? 'ซ่อน' : 'แสดง'}</button>
+                                <span>{isSplitMode ? '✅ เลือกรายการที่ต้องการแยกบิล' : 'รายการอาหารในโต๊ะ'}</span>
+                                {!isSplitMode && (
+                                    <button onClick={() => setShowExisting(!showExisting)} className="text-blue-600 underline">{showExisting ? 'ซ่อน' : 'แสดง'}</button>
+                                )}
                             </div>
 
                             {showExisting && existingOrders.map(o => o.items.map((item, iIdx) => (
                                 <div
                                     key={item._id || iIdx}
-                                    onClick={() => handleOpenEdit(item)}
-                                    className="flex justify-between items-center text-base font-black mb-1.5 bg-gray-50 p-2 rounded-lg active:bg-blue-50 transition-all border border-gray-100/60"
+                                    onClick={() => {
+                                        if (isSplitMode) {
+                                            toggleSplitItem(item._id);
+                                        } else {
+                                            handleOpenEdit(item);
+                                        }
+                                    }}
+                                    className={`flex justify-between items-center text-base font-black mb-1.5 p-2 rounded-lg transition-all border ${
+                                        isSplitMode && selectedSplitItemIds.includes(item._id)
+                                            ? 'bg-blue-100 border-blue-400 shadow-sm'
+                                            : 'bg-gray-50 border-gray-100/60 active:bg-blue-50'
+                                    }`}
                                 >
+                                    {isSplitMode && (
+                                        <div className="shrink-0 mr-3 flex items-center justify-center">
+                                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${selectedSplitItemIds.includes(item._id) ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
+                                                {selectedSplitItemIds.includes(item._id) && <span className="text-white text-xs">✓</span>}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex flex-col flex-1 min-w-0 pr-2">
                                         <div className="flex items-baseline gap-1.5 flex-wrap">
-                                            {/* ขยายชื่อเมนูอาหารขึ้นเป็น text-base */}
                                             <span className={`${getStatusStyle(item.status)} truncate text-base`}>
-                                {item.name}
-                                                {/* ขยายจำนวนชิ้นเป็น text-sm */}
+                                                {item.name}
                                                 <span className="text-gray-400 text-sm ml-1">x{item.quantity}</span>
-                                                {/* ขยายราคาต่อเมนูสีน้ำเงินเป็น text-xs เพื่อความชัดเจน */}
                                                 <span className="text-blue-700 text-xs font-black ml-1.5">@{item.price.toLocaleString()}</span>
-                            </span>
+                                            </span>
                                             {item.printCount > 0 && (
-                                                <span className="bg-red-50 text-red-600 text-[10px] px-1 rounded ml-1">
-                                    พิมพ์ครั้งที่ {item.printCount}
-                                </span>
+                                                <span className="bg-red-50 text-red-600 text-[10px] px-1 rounded ml-1">พิมพ์ครั้งที่ {item.printCount}</span>
                                             )}
                                             {item.options?.length > 0 && (
-                                                /* ขยายขนาดตัวหนังสือออปชันเสริมเป็น text-xs */
                                                 <span className="text-xs text-gray-400 font-black italic">
-                                    ({item.options.map(opt => `+${opt.label}`).join(' ')})
-                                </span>
+                                                    ({item.options.map(opt => `+${opt.label}`).join(' ')})
+                                                </span>
                                             )}
+
                                         </div>
-                                        {/* ขยายขนาดหมายเหตุเป็น text-xs */}
                                         {item.note && <span className="text-xs text-orange-500 italic font-black">*{item.note}</span>}
                                     </div>
-                                    {/* ขยายราคารวมท้ายแถวให้ใหญ่เด่นชัดขึ้นเป็น text-base */}
                                     <span className="text-gray-900 font-black shrink-0 text-base">{(item.price * item.quantity).toLocaleString()}.-</span>
                                 </div>
                             )))}
@@ -399,34 +434,69 @@ const OrderPage = () => {
                     )}
                 </div>
 
-                {/* 3. ปุ่มเช็คบิล/ปิดยอดเดลิเวอรี สรุปราคาในตัวเสร็จสรรพ */}
-                <button
-                    onClick={handleCheckoutClick}
-                    disabled={!hasItems}
-                    className={`w-full py-3 rounded-xl font-black text-base flex justify-between px-4 items-center transition-all shadow-md mb-0.5 ${hasItems ? 'bg-blue-600 text-white active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                >
-                    <span>{isLineman ? 'ปิดยอดเดลิเวอรี' : 'เช็คบิลปิดโต๊ะ'}</span>
-                    <span className={`${hasItems ? 'bg-white/20 text-white' : 'bg-gray-300'} px-2.5 py-0.5 rounded-lg text-sm font-black`}>
-                        {grandTotal().toLocaleString()}.-
-                    </span>
-                </button>
+                {/* 3. ปุ่มแยกบิล และ ปุ่มเช็คบิล */}
+                {!isSplitMode ? (
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <button
+                            onClick={() => { setIsSplitMode(true); setSelectedSplitItemIds([]); }}
+                            // 🔀 เปลี่ยนเงื่อนไขตรงนี้: ใช้ canSplit แทน hasItems
+                            disabled={!canSplit || !isSplitTableReady}
+                            className={`py-3 px-3.5 rounded-xl font-black text-xs transition-all shadow-md shrink-0 border ${canSplit && isSplitTableReady ? 'bg-orange-50 text-orange-600 active:scale-95 border-orange-200' : 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed'}`}
+                        >
+                            🔀 แยกบิลจ่าย
+                        </button>
+
+                        <button
+                            onClick={handleCheckoutClick}
+                            // 🔀 เปลี่ยนเงื่อนไข disabled: ปิดปุ่มถ้าไม่มีของ หรือ ถ้ายอดรวมเป็น 0
+                            disabled={!hasItems || grandTotal() <= 0}
+                            className={`flex-1 py-3 rounded-xl font-black text-base flex justify-between px-4 items-center transition-all shadow-md ${(hasItems && grandTotal() > 0) ? 'bg-blue-600 text-white active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                        >
+                            <span>{isLineman ? 'ปิดยอดเดลิเวอรี' : 'เช็คบิลทั้งหมด'}</span>
+                            <span className={`${(hasItems && grandTotal() > 0) ? 'bg-white/20 text-white' : 'bg-gray-300'} px-2.5 py-0.5 rounded-lg text-sm font-black`}>
+        {grandTotal().toLocaleString()}.-
+    </span>
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <button
+                            onClick={() => setIsSplitMode(false)}
+                            className="py-3 px-4 rounded-xl font-black text-xs transition-all shadow-md shrink-0 bg-gray-800 text-white active:scale-95"
+                        >
+                            ❌ ยกเลิก
+                        </button>
+
+                        <button
+                            onClick={handleSplitCheckoutClick}
+                            disabled={selectedSplitItemIds.length === 0}
+                            className={`flex-1 py-3 rounded-xl font-black text-sm flex justify-between px-3 items-center transition-all shadow-md ${selectedSplitItemIds.length > 0 ? 'bg-blue-600 text-white active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                        >
+                            <span>👉 ไปหน้าเช็คบิล (แยกบิล)</span>
+                            <span className={`${selectedSplitItemIds.length > 0 ? 'bg-white/20 text-white' : 'bg-gray-300'} px-2 py-0.5 rounded-lg text-sm font-black`}>
+                                {getSplitTotal().toLocaleString()}.-
+                            </span>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Item Detail Modal */}
-            {/* Item Detail Modal */}
             {isModalOpen && selectedProduct && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs text-xs font-bold">
-                    {/* 🎯 ปรับโครงสร้าง Wrapper ของป๊อปอัพให้เป็น flex และล็อคความสูงสูงสุดไว้ */}
                     <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-
-                        {/* 🏢 ส่วนหัว (Header) อยู่คงที่ */}
                         <div className="p-4 pb-2 border-b border-gray-100 shrink-0">
                             <h2 className="text-xl font-black text-gray-800">
                                 {isEditing ? 'แก้ไข' : 'สั่ง'} {selectedProduct.name}
+
+                                {/* 2. และเพิ่มโค้ดแสดงเวลาตรงนี้ 👇 */}
+                                {isEditing && currentItem?.createdAt && (
+                                    <span className="ml-2 text-gray-400 text-sm font-normal tracking-tighter">
+                                        ({new Date(currentItem.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.)
+                                    </span>
+                                )}
                             </h2>
                         </div>
-
-                        {/* 📜 ส่วนเนื้อหา (Body) เลื่อน Scroll ได้อิสระถ้าตัวเลือกมันยาว */}
                         <div className="p-4 overflow-y-auto flex-1 space-y-4 no-scrollbar">
                             {selectedProduct.options?.length > 0 && (
                                 <div>
@@ -481,8 +551,6 @@ const OrderPage = () => {
                                 <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 rounded-full bg-white shadow font-black">+</button>
                             </div>
                         </div>
-
-                        {/* 🔒 ส่วนท้าย (Footer) ล็อคแผงปุ่มกดให้อยู่ติดก้นป๊อปอัพตลอดเวลา ไม่ขยับตามการ Scroll */}
                         <div className="p-4 border-t border-gray-100 bg-gray-50 shrink-0">
                             <div className={`grid ${isEditing ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
                                 <button onClick={() => setIsModalOpen(false)} className="py-3 rounded-xl text-gray-400 bg-white border border-gray-200 font-black shadow-2xs">ยกเลิก</button>

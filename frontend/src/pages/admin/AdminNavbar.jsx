@@ -30,7 +30,7 @@ const AdminNavbar = () => {
                     onClick={() => navigate('/admin/report/monthly')}
                     className={`text-[10px] font-black px-2.5 py-1 rounded-md transition-all ${isActive('monthly')}`}
                 >
-                    รายงานเดือน
+                    รายงาน
                 </button>
             </div>
         </nav>

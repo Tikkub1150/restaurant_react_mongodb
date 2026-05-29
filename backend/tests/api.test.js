@@ -94,7 +94,7 @@ describe('Full RESTful APIs Test for All Models', () => {
             const checkoutMsg = `
 🔔 *เช็คบิลปิดโต๊ะ*
 📍 *โต๊ะ:* โต๊ะ 'ทั่วไป'}
-💳 *ชำระโดย:*  'โอน (PromptPay)'}
+💳 *ชำระโดย:*  'โอน (promptpay)'}
 💰 *จำนวนเงินรวม:*`
 
 

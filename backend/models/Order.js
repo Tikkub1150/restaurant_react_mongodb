@@ -17,7 +17,7 @@ const orderSchema = new mongoose.Schema({
     cashReceived: { type: Number, default: 0 },   // เงินที่รับมา
     changeGiven: { type: Number, default: 0 },    // เงินทอน
 
-    paymentMethod: { type: String, enum: ['cash', 'promptpay', 'lineman'] },
+    paymentMethod: { type: String, enum: ['cash', 'promptpay', 'lineman', 'goverment', 'truemoney'] },
     shift: { type: String, enum: ['morning', 'afternoon'] },
     customerName: String,
     items: { type: Array },

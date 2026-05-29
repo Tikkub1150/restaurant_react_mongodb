@@ -23,7 +23,7 @@ const AdminLogin = () => {
     const checkLogin = (e) => {
         e.preventDefault();
         if (pass === 'หำดำ') {
-            const oneWeek = 7 * 24 * 60 * 60 * 1000;
+            const oneWeek = 30 * 24 * 60 * 60 * 1000;
             const expiryTime = new Date().getTime() + oneWeek;
 
             localStorage.setItem('adminAuthData', JSON.stringify({

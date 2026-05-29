@@ -95,6 +95,7 @@ exports.upsertOrder = async (req, res) => {
                 _id: undefined,
                 orderId: order._id,
                 status: 'pending',
+                shift: shift || 'error',
                 categoryName: i.categoryName,
             }));
             await OrderItem.insertMany(initialItems);
@@ -474,7 +475,6 @@ exports.closeOrder = async (req, res) => {
             status: 'paid'
         }));
 
-        // อัปเดตข้อมูลลงใบหลัก (Master Order) ของพี่ทั้งหมด
         await Order.findByIdAndUpdate(masterOrder._id, {
             status: 'paid',
             paymentMethod,
@@ -485,7 +485,7 @@ exports.closeOrder = async (req, res) => {
             cashierName: customerName,
             items: snapshotItems,
             totalAmount,
-            shift: shift || 'morning',
+            shift: shift || masterOrder.shift || 'error',
             closedAt: new Date()
         });
 
@@ -532,7 +532,7 @@ exports.closeOrder = async (req, res) => {
             const checkoutMsg = `
 🔔 *เช็คบิลปิดโต๊ะ*
 📍 *โต๊ะ:* โต๊ะ ${masterOrder.table_name || 'ทั่วไป'}
-💳 *ชำระโดย:* ${paymentMethod === 'cash' ? 'เงินสด' : 'โอน (PromptPay)'}
+💳 *ชำระโดย:* ${paymentMethod === 'cash' ? 'เงินสด' : 'โอน'}
 💰 *จำนวนเงินรวม:* ${totalAmount?.toLocaleString()}.- บาท
 
 📦 *[ รายการอาหาร ]*
@@ -669,33 +669,50 @@ exports.getMonthlyReport = async (req, res) => {
 
                     morningNet: { $sum: { $cond: [{ $eq: ["$shift", "morning"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     morningCash: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $eq: ["$paymentMethod", "cash"] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
-                    morningTransfer: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    morningTruemoney: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["truemoney", "Truemoney", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    morningPromptpay: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["promptpay", "Promptpay", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     morningLineman: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    morningGoverment: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "morning"] }, { $in: ["$paymentMethod", ["goverment", "GOVERMENT"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
 
                     afternoonNet: { $sum: { $cond: [{ $eq: ["$shift", "afternoon"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     afternoonCash: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $eq: ["$paymentMethod", "cash"] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
-                    afternoonTransfer: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    afternoonTruemoney: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["truemoney", "Truemoney", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    afternoonPromptpay: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["promptpay", "Promptpay", "โอน"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     afternoonLineman: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    afternoonGoverment: { $sum: { $cond: [{ $and: [{ $eq: ["$shift", "afternoon"] }, { $in: ["$paymentMethod", ["goverment", "GOVERMENT"]] }] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
 
                     totalNet: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] } },
                     cashTotal: { $sum: { $cond: [{ $eq: ["$paymentMethod", "cash"] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
-                    transferTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["promptpay", "transfer", "โอน"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    truemoneyTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["truemoney", "Truemoney", "โอน"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    promptpayTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["promptpay", "Promptpay", "โอน"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     linemanTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["lineman", "LINEMAN"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
+                    govermentTotal: { $sum: { $cond: [{ $in: ["$paymentMethod", ["goverment", "GOVERMENT"]] }, { $subtract: ["$totalAmount", { $ifNull: ["$discountAmount", 0] }] }, 0] } },
                     totalBills: { $sum: 1 },
                     totalItems: { $sum: { $size: "$detailedItems" } },
                     discountOrders: {
                         $push: {
                             $cond: [
                                 { $gt: [{ $ifNull: ["$discountAmount", 0] }, 0] },
-                                { cashierName: "$cashierName", discount: "$discount", discountAmount: "$discountAmount", totalAmount: "$totalAmount", shift: "$shift" },
+                                {
+                                    order_id: "$_id",               // 👈 เพิ่ม _id ตรงนี้
+                                    cashierName: "$cashierName",
+                                    discount: "$discount",
+                                    discountAmount: "$discountAmount",
+                                    totalAmount: "$totalAmount",
+                                    shift: "$shift"
+                                },
                                 "$$REMOVE"
                             ]
                         }
                     },
                     allOrderItems: {
                         $push: {
+                            table_name: "$table_name",       // 👈 1. เพิ่มบรรทัดนี้
+                            paymentMethod: "$paymentMethod", // 👈 2. เพิ่มบรรทัดนี้
+                            totalAmount: "$totalAmount",
                             items: "$detailedItems", // รอบนี้ข้อมูลมาเต็ม 100% แน่นอน
                             shift: "$shift",
+                            order_id: "$_id",
                             closedAt: "$closedAt"
                         }
                     },
