@@ -40,7 +40,7 @@ const OrderPage = () => {
                 api.get('/api/category'),
                 api.get('/api/products'),
                 api.get(`/api/tables/${tableId}`),
-                api.get(`/api/orders/table/${tableId}?status=pending,draft,printed,printing,printed_edited`),
+                api.get(`/api/tables/table/${tableId}?status=pending,draft,printed,printing,printed_edited`),
                 api.get('/api/tables')
             ]);
 
@@ -147,7 +147,7 @@ const OrderPage = () => {
         if (!window.confirm(`ย้ายไปโต๊ะ ${newTable?.table_name}?`)) return;
         try {
             setLoading(true);
-            await api.put(`/api/orders/move/${tableId}`, { newTableId, newTableName: newTable.table_name });
+            await api.put(`/api/tables/move/${tableId}`, { newTableId, newTableName: newTable.table_name });
             navigate(`/order/${newTableId}`, { replace: true });
         } catch (err) {
             alert("ย้ายไม่สำเร็จ");
@@ -185,7 +185,7 @@ const OrderPage = () => {
             if (confirmClose) {
                 try {
                     setLoading(true);
-                    await api.put(`/api/orders/close/${tableId}`, {
+                    await api.put(`/api/checkout/close/${tableId}`, {
                         paymentMethod: 'lineman',
                         totalAmount: grandTotal()
                     });

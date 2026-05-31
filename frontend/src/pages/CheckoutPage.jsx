@@ -75,7 +75,8 @@ const CheckoutPage = () => {
                 const splitTableName = `${tableInfo?.table_name} (แยกบิล)`;
 
                 // 1. สร้างบิลจำลอง
-                await api.post('/api/orders', {
+                await api.post('/api' +
+                    '', {
                     tableId: targetTableId,
                     table_name: splitTableName,
                     items: orders,
@@ -84,7 +85,7 @@ const CheckoutPage = () => {
                 });
 
                 // 2. ปิดบิลที่โต๊ะจำลอง
-                await api.put(`/api/orders/close/${targetTableId}`, {
+                await api.put(`/api/checkout/close/${targetTableId}`, {
                     paymentMethod: method,
                     discount: discountPercent,
                     discountAmount: discountAmount,
@@ -106,7 +107,7 @@ const CheckoutPage = () => {
                 navigate(`/order/${originalTableId}`);
             } else {
                 // 💳 ลอจิกปิดบิลเต็มรูปแบบ (ปกติ)
-                await api.put(`/api/orders/close/${tableId}`, {
+                await api.put(`/api/checkout/close/${tableId}`, {
                     paymentMethod: method,
                     discount: discountPercent,
                     discountAmount: discountAmount,

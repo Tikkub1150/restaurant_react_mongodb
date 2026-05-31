@@ -39,7 +39,7 @@ const MonthlyReport = () => {
     useEffect(() => {
         const fetchReport = async () => {
             try {
-                const res = await axios.get(`${apiBaseUrl}/api/orders/report/monthly`, {
+                const res = await axios.get(`${apiBaseUrl}/api/reports/monthly`, {
                     params: { year, month: month || "" }
                 });
                 setReport(res.data);
@@ -547,8 +547,6 @@ const MonthlyReport = () => {
                                                                 <tr
                                                                     key={index}
                                                                     onClick={() => {
-                                                                        console.log("คลิกดูรายละเอียดบิลที่มีส่วนลด:", order._id);
-                                                                        console.log(selected.allOrderItems, 'fullBillDetails')
                                                                         // 1. ค้นหาบิลฉบับเต็มจาก allOrderItems โดยใช้ _id หรือ order_id เทียบกัน
                                                                         const fullBillDetails = selected.allOrderItems?.find(
                                                                             (b) => (b.order_id && b.order_id === order.order_id)

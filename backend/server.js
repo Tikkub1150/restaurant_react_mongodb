@@ -25,17 +25,25 @@ mongoose.connect('mongodb://localhost:27017/pos_db')
 // --- ลงทะเบียน Routes แยกไฟล์ตามมาตรฐานของพี่ ---
 const tableRoutes = require('./routes/tableRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const checkoutRoutes = require('./routes/checkoutRoutes'); // ดึงไฟล์ที่เราเพิ่งแก้ด้านบนมาใช้
 const productRoutes = require('./routes/productRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const materialRoutes = require('./routes/materialRoutes'); // ดึงไฟล์ที่เราเพิ่งแก้ด้านบนมาใช้
 const imageRoutes = require('./routes/imageRoutes'); // ดึงไฟล์ที่เราเพิ่งแก้ด้านบนมาใช้
 
+//admin
+const reportRoutes = require('./routes/reportRoutes');
+
 app.use('/api/tables', tableRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/checkout', checkoutRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/images', imageRoutes);
+
+//admin
+app.use('/api/reports', reportRoutes);
 
 app.listen(5000, '0.0.0.0', () => {
     console.log('🚀 Server running on port 5000 (Open for All Devices)');
