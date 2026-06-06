@@ -25,6 +25,7 @@ const AdminProducts = () => {
     const [printerName, setPrinterName] = useState("POS-80C1");
     const [options, setOptions] = useState([]);
     const [quickTags, setQuickTags] = useState([]);
+    const [minOptionsRequired, setMinOptionsRequired] = useState(0);
 
     const [tempOptionName, setTempOptionName] = useState("");
     const [tempOptionPrice, setTempOptionPrice] = useState("");
@@ -55,6 +56,7 @@ const AdminProducts = () => {
         const payload = {
             name,
             price: Number(price),
+            minOptionsRequired,
             category,
             image,
             sort: Number(sort),
@@ -95,6 +97,7 @@ const AdminProducts = () => {
         setCurrentProductId(null);
         setName("");
         setPrice("");
+        setMinOptionsRequired(0);
         setCategory(categories[0]?.name || "");
         setImage("");
         setSort(0);
@@ -109,6 +112,7 @@ const AdminProducts = () => {
         setCurrentProductId(product._id);
         setName(product.name);
         setPrice(product.price);
+        setMinOptionsRequired(product.minOptionsRequired || 0);
         setCategory(product.category);
         setImage(product.image || "");
         setSort(product.sort || 0);
@@ -350,9 +354,41 @@ const AdminProducts = () => {
 
                                 <div className="space-y-2 bg-white p-3 rounded-xl border border-gray-200 shadow-2xs">
                                     <div><label className="block text-gray-500 font-bold mb-1">ชื่อสินค้า *</label><input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-50 px-2.5 py-2 rounded-lg border border-gray-300 font-bold" /></div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-3 gap-3">
                                         <div><label className="block text-gray-500 font-bold mb-1">ราคา (บาท) *</label><input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} className="w-full bg-gray-50 px-2.5 py-2 rounded-lg border border-gray-300 font-black" /></div>
-                                        <div><label className="block text-gray-500 font-bold mb-1">ลำดับจัดเรียง</label><input type="number" value={sort} onChange={(e) => setSort(e.target.value)} className="w-full bg-gray-50 px-2.5 py-2 rounded-lg border border-gray-300 font-bold" /></div>
+                                        <div className="mb-3">
+                                            <label className="block text-xs font-black text-gray-700 mb-1">
+                                                เรียงลำดับ
+                                            </label>
+                                            <select
+                                                value={sort || 1}
+                                                onChange={(e) => setSort(Number(e.target.value))}
+                                                className="w-full p-2.5 border border-gray-200 rounded-xl text-xs font-bold bg-gray-50 focus:outline-none focus:border-blue-500"
+                                            >
+                                                {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                                                    <option key={num} value={num}>
+                                                        {num}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <div className="mb-3">
+                                                <label className="block text-xs font-black text-gray-700 mb-1">
+                                                    บังคับเลือก
+                                                </label>
+                                                <select
+                                                    value={minOptionsRequired}
+                                                    onChange={(e) => setMinOptionsRequired(Number(e.target.value))}
+                                                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs font-bold bg-gray-50 focus:outline-none focus:border-blue-500"
+                                                >
+                                                    <option value={0}>ไม่บังคับ</option>
+                                                    <option value={1}>1 อย่าง</option>
+                                                    <option value={2}>2 อย่าง</option>
+                                                    <option value={3}>3 อย่าง</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>

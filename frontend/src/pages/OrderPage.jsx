@@ -557,14 +557,22 @@ const OrderPage = () => {
                                 )}
                                 <button
                                     onClick={handleSaveOrder}
-                                    disabled={(((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity) === 0}
+                                    disabled={
+                                        (((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity) === 0 ||
+                                        selectedOptions.length < (selectedProduct?.minOptionsRequired || 0) // ➕ ล็อกเพิ่มถ้าเลือกตัวเลือกไม่ครบตามจำนวนขั้นต่ำ
+                                    }
                                     className={`py-3 rounded-xl text-white font-black shadow-sm transition-all ${
-                                        (((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity) === 0
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                                        ((((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity) === 0 ||
+                                            selectedOptions.length < (selectedProduct?.minOptionsRequired || 0))
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' // แสดงสีเทาเมื่อเข้าเงื่อนไขห้ามกด
                                             : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
                                     }`}
                                 >
-                                    บันทึก ({(((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity).toLocaleString()}.-)
+                                    {/* 💡 แจ้งเตือนพนักงานเพิ่มเติมในปุ่มให้เข้าใจง่ายขึ้น */}
+                                    {selectedOptions.length < (selectedProduct?.minOptionsRequired || 0)
+                                        ? `ต้องเลือกอีก ${selectedProduct.minOptionsRequired - selectedOptions.length} อย่าง`
+                                        : `บันทึก (${(((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity).toLocaleString()}.-)`
+                                    }
                                 </button>
                             </div>
                         </div>

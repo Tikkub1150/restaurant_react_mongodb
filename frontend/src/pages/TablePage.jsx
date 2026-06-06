@@ -24,7 +24,7 @@ const TablePage = () => {
         fetchTablesData();
 
         // 3. สั่งให้ทำงานวนลูปซ้ำๆ ทุกๆ 3 วินาที (3000ms) อารมณ์ Ajax Polling
-        const intervalId = setInterval(fetchTablesData, 2000);
+        const intervalId = setInterval(fetchTablesData, 3000);
 
         // 4. เคลียร์ลูปทิ้งเมื่อพนักงานย้ายหน้า ป้องกันเครื่องหน่วง
         return () => clearInterval(intervalId);

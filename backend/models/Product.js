@@ -13,7 +13,8 @@ const productSchema = new mongoose.Schema({
         extraPrice: { type: Number, default: 0 }
     }],
     // ฟิลด์สำหรับแท็กด่วน (เช่น ไม่ใส่ผัก, เผ็ดน้อย)
-    quickTags: { type: [String], default: [] }
+    quickTags: { type: [String], default: [] },
+    minOptionsRequired: { type: Number, default: 0 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Product', productSchema);
