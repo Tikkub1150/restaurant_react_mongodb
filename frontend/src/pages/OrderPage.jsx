@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
-// 🔀 ดึง ID โต๊ะแยกบิลจาก .env
-const SPLIT_TABLE_ID = process.env.REACT_APP_SPLIT_TABLE_ID || "split_table_001";
-
 const OrderPage = () => {
     const { tableId } = useParams();
     const navigate = useNavigate();
@@ -32,7 +29,6 @@ const OrderPage = () => {
     // 🔀 State สำหรับระบบแยกบิล
     const [isSplitMode, setIsSplitMode] = useState(false);
     const [selectedSplitItemIds, setSelectedSplitItemIds] = useState([]);
-    const [isSplitTableReady, setIsSplitTableReady] = useState(false); // เช็คว่ามีโต๊ะแยกบิลจริงไหม
 
     const fetchData = async () => {
         try {
@@ -58,16 +54,6 @@ const OrderPage = () => {
             if (orderRes.data?.length > 0) {
                 setTableNote(orderRes.data[0].tableNote || "");
             }
-
-            // 🔀 ตรวจสอบว่าโต๊ะแยกบิลมีอยู่ในระบบจริงๆ หรือไม่
-            const splitTableExists = fetchedTables.some(t => t._id === SPLIT_TABLE_ID);
-            setIsSplitTableReady(splitTableExists);
-            // if (!splitTableExists) {
-            //     console.log(`❌ [Split Bill Error] ปิดปุ่มแยกบิล: ไม่พบโต๊ะ ID => "${SPLIT_TABLE_ID}" ในระบบ`);
-            //     console.log(`👉 วิธีแก้: ไปสร้างโต๊ะสำหรับแยกบิล แล้วเอา ObjectId (24 หลัก) มาใส่ในไฟล์ .env ตัวแปร REACT_APP_SPLIT_TABLE_ID`);
-            // } else {
-            //     console.log(`✅ [Split Bill] โต๊ะแยกบิลพร้อมใช้งาน (ID: ${SPLIT_TABLE_ID})`);
-            // }
 
             setLoading(false);
         } catch (err) {
@@ -439,9 +425,8 @@ const OrderPage = () => {
                     <div className="flex items-center gap-1.5 mb-0.5">
                         <button
                             onClick={() => { setIsSplitMode(true); setSelectedSplitItemIds([]); }}
-                            // 🔀 เปลี่ยนเงื่อนไขตรงนี้: ใช้ canSplit แทน hasItems
-                            disabled={!canSplit || !isSplitTableReady}
-                            className={`py-3 px-3.5 rounded-xl font-black text-xs transition-all shadow-md shrink-0 border ${canSplit && isSplitTableReady ? 'bg-orange-50 text-orange-600 active:scale-95 border-orange-200' : 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed'}`}
+                            disabled={!canSplit}
+                            className={`py-3 px-3.5 rounded-xl font-black text-xs transition-all shadow-md shrink-0 border ${canSplit ? 'bg-orange-50 text-orange-600 active:scale-95 border-orange-200' : 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed'}`}
                         >
                             🔀 แยกบิลจ่าย
                         </button>
@@ -485,17 +470,20 @@ const OrderPage = () => {
             {isModalOpen && selectedProduct && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs text-xs font-bold">
                     <div className="bg-white w-full max-w-md rounded-2xl overflow-hidden max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-                        <div className="p-4 pb-2 border-b border-gray-100 shrink-0">
+                        <div className="p-4 pb-2 border-b border-gray-100 shrink-0 flex items-baseline justify-between gap-2 flex-wrap">
                             <h2 className="text-xl font-black text-gray-800">
                                 {isEditing ? 'แก้ไข' : 'สั่ง'} {selectedProduct.name}
-
-                                {/* 2. และเพิ่มโค้ดแสดงเวลาตรงนี้ 👇 */}
                                 {isEditing && currentItem?.createdAt && (
                                     <span className="ml-2 text-gray-400 text-sm font-normal tracking-tighter">
                                         ({new Date(currentItem.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.)
                                     </span>
                                 )}
                             </h2>
+                            {/* 💰 เปลี่ยนจาก <p> เป็น <span> และอยู่บรรทัดเดียวกับชื่อด้านบน */}
+                            <span className="text-sm font-black text-blue-600 whitespace-nowrap">
+                                {((selectedProduct.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)).toLocaleString()}.- บาท
+                                                        {quantity > 1 && ` (ยอดรวม ${(((selectedProduct.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity).toLocaleString()}.-)`}
+                            </span>
                         </div>
                         <div className="p-4 overflow-y-auto flex-1 space-y-4 no-scrollbar">
                             {selectedProduct.options?.length > 0 && (
@@ -567,7 +555,17 @@ const OrderPage = () => {
                                         ลบ
                                     </button>
                                 )}
-                                <button onClick={handleSaveOrder} className="py-3 rounded-xl text-white bg-blue-600 shadow-sm font-black">บันทึก</button>
+                                <button
+                                    onClick={handleSaveOrder}
+                                    disabled={(((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity) === 0}
+                                    className={`py-3 rounded-xl text-white font-black shadow-sm transition-all ${
+                                        (((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity) === 0
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                                            : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                                    }`}
+                                >
+                                    บันทึก ({(((selectedProduct?.price || 0) + selectedOptions.reduce((sum, opt) => sum + (Number(opt.extraPrice) || 0), 0)) * quantity).toLocaleString()}.-)
+                                </button>
                             </div>
                         </div>
 

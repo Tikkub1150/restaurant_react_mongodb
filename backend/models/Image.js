@@ -6,6 +6,7 @@ const ImageSchema = new mongoose.Schema({
     name: { type: String, required: true },   // เช่น ชายสี่ บะหมี่, ชาตรี มณีวรวัฒน์
     filename: { type: String, required: true }, // เช่น qr-true.jpg, qr-bank.jpg
     method: { type: String }, // เช่น promptpay, lineman, goverment, truemoney
+    color: { type: String },
     status: { type: String, enum: ['active', 'inactive', 'disabled'], default: 'inactive' }
 }, { timestamps: true });
 

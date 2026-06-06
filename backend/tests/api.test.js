@@ -228,6 +228,7 @@ describe('Full RESTful APIs Test for All Models', () => {
             }
         });
     });
+
     describe('Category API', () => {
         it('POST', async () => {
             let data = [

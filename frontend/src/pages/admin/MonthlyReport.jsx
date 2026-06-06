@@ -363,6 +363,34 @@ const MonthlyReport = () => {
         document.body.removeChild(textArea);
     };
 
+    // =========================================================
+    // 📊 ลอจิกคำนวณยอดขายแยกตาม Zone (แบบคลีน)
+    // =========================================================
+    const zones = [
+        { id: 'main', name: 'ในร้าน' },
+        { id: 'delivery', name: 'ส่งเอง' },
+        { id: 'take_home', name: 'กลับบ้าน' },
+        { id: 'reserve', name: 'สำรอง' },
+        // { id: 'bamee', name: 'บะหมี่' },
+        { id: 'vip', name: 'VIP' },
+        // { id: 'lineman', name: 'Line Man' }
+    ];
+    const calculateZoneSales = () => {
+        const allOrders = report.flatMap(day => day.allOrderItems || []);
+        return zones.map(zone => {
+            const zoneOrders = allOrders.filter(order => {
+                const orderZone = (order.zone || 'main').toLowerCase();
+                return orderZone === zone.id;
+            });
+
+            const total = zoneOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+            return { ...zone, total, count: zoneOrders.length };
+        });
+    };
+
+    const zoneSalesData = calculateZoneSales();
+    const totalAllZones = zoneSalesData.reduce((sum, z) => sum + z.total, 0);
+
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-xs font-bold text-gray-900">
             {/* ส่วนหัวและตัวเลือกเดือน/ปี */}
@@ -670,6 +698,52 @@ const MonthlyReport = () => {
                                     </div>
                                     {expandedPayment === 'goverment' && renderPaymentDetails('goverment')}
                                 </div>
+
+                                {/* 👇👇👇 แปะโค้ด ZONE ตรงนี้ 👇👇👇 */}
+                                <div className="mt-4 pt-3 border-t border-dashed border-gray-200 w-full overflow-hidden">
+                                    {(() => {
+                                        // 🎯 กรองบิลและส่วนลดตามวัน/กะที่เลือก
+                                        const activeOrders = (selected?.allOrderItems || []).filter(
+                                            o => popupShift === "all" || o.shift === popupShift
+                                        );
+                                        const activeDiscounts = (selected?.discountOrders || []).filter(
+                                            d => popupShift === "all" || d.shift === popupShift
+                                        );
+
+                                        // 🧮 คำนวณยอดขายของแต่ละโซน (หักส่วนลดแล้ว)
+                                        const zonesData = zones.map(zone => {
+                                            const zOrders = activeOrders.filter(o => (o.zone || 'main').toLowerCase() === zone.id);
+                                            const rawTotal = zOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+                                            const zDiscounts = activeDiscounts.filter(d => zOrders.some(zo => zo.order_id === d.order_id));
+                                            const discountTotal = zDiscounts.reduce((sum, d) => sum + (d.discountAmount || 0), 0);
+
+                                            return { ...zone, netTotal: rawTotal - discountTotal };
+                                        });
+
+                                        // 💰 รวมยอดสุทธิของทุกโซนเข้าด้วยกัน
+                                        const allZonesNetTotal = zonesData.reduce((sum, z) => sum + z.netTotal, 0);
+
+                                        return (
+                                            <>
+                                                <span className="text-[10px] text-gray-400 block mb-2 font-black uppercase tracking-wider">
+                                                    📍 ยอดขายแยกตามโซน ({allZonesNetTotal.toLocaleString()}.-)
+                                                </span>
+
+                                                {/* 🛠️ เปลี่ยนเป็น Grid 2 คอลัมน์ตรงนี้ */}
+                                                <div className="grid grid-cols-3 gap-3 pb-3">
+                                                    {zonesData.map((z, idx) => (
+                                                        <div key={idx} className="bg-white border border-gray-200 rounded-xl py-2 px-1 flex justify-between items-center shadow-3xs">
+                                                            <span className="text-[11px] font-black text-gray-700">{z.name}</span>
+                                                            <span className="text-xs font-black text-blue-600">{z.netTotal.toLocaleString()}.-</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                                {/* 👆👆👆 สิ้นสุดโค้ด ZONE 👆👆👆 */}
 
                                 <div className="mt-4 pt-3 border-t border-dashed border-gray-200 text-left w-full">
                                     <span className="text-[10px] text-gray-400 block mb-2 font-black uppercase tracking-wider">

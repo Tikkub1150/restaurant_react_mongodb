@@ -90,7 +90,8 @@ exports.getMonthlyReport = async (req, res) => {
                             items: "$detailedItems", // รอบนี้ข้อมูลมาเต็ม 100% แน่นอน
                             shift: "$shift",
                             order_id: "$_id",
-                            closedAt: "$closedAt"
+                            closedAt: "$closedAt",
+                            zone: "$zone"
                         }
                     },
                     orderTimes: {

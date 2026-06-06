@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@tailwindcss/postcss": "^4.3.0",
     "axios": "^1.7.0",
     "dotenv": "^17.4.2",

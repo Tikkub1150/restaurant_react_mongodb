@@ -18,6 +18,7 @@ const orderSchema = new mongoose.Schema({
     changeGiven: { type: Number, default: 0 },    // เงินทอน
 
     paymentMethod: { type: String, enum: ['cash', 'promptpay', 'lineman', 'goverment', 'truemoney'] },
+    zone: { type: String, enum: ['main', 'delivery', 'lineman', 'vip', 'reserve', 'bamee', 'take_home'] },
     shift: { type: String, enum: ['morning', 'afternoon'] },
     customerName: String,
     items: { type: Array },

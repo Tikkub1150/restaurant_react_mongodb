@@ -10,7 +10,7 @@ const TableSchema = new mongoose.Schema({
     display: {
         sort: { type: Number, default: 0 },
         hide: { type: Boolean, default: false },
-        zone: { type: String, default: 'Main' }
+        zone: { type: String, enum: ['main', 'delivery', 'lineman', 'vip', 'reserve', 'bamee', 'take_home'] }
     },
     session: {
         shift: { type: String, enum: ['morning', 'afternoon'], default: 'morning' },

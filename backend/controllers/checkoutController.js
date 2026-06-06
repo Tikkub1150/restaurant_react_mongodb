@@ -4,7 +4,6 @@ const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Table = require('../models/Table');
 
-
 const { sendTelegramNotification } = require('../services/telegramService');
 
 // ฟังก์ชันคำนวณเงินใหม่ (Recalculate)
@@ -82,6 +81,14 @@ exports.closeOrder = async (req, res) => {
         const { tableId } = req.params; // ID ที่ส่งมาจากหน้าบ้าน
         const { paymentMethod, discount, discountAmount, cashReceived, changeGiven, customerName, shift, totalAmount } = req.body;
 
+        // 🎯 ดึงข้อมูลโต๊ะเพื่อเอา zone มาใช้งาน
+        const table = await Table.findById(tableId);
+        let zone = 'main'; // ค่าเริ่มต้น
+        if (table && table.display && table.display.zone) {
+            // เช็คและแปลงชื่อให้ตรงกับ Enum ใน Order Schema
+            zone = table.display.zone === 'Main' ? 'main' : table.display.zone;
+        }
+
         // 🎯 1. แก้ไขตรงนี้: เพิ่ม 'printing' และ 'printed' เข้าไปในสเตตัสค้นหา เพื่อไม่ให้บิลค้างพิมพ์หลุดคิว 404
         let activeOrders = await Order.find({
             _id: tableId,
@@ -103,7 +110,7 @@ exports.closeOrder = async (req, res) => {
         const allItems = await OrderItem.find({ orderId: { $in: orderIds } });
         const masterOrder = activeOrders[0];
 
-        // โครงสร้างดั้งเดิมของพี่อลิส: สร้าง Snapshot สำหรับเก็บใน Order
+        // โครงสร้างดั้งเดิม: สร้าง Snapshot สำหรับเก็บใน Order
         const snapshotItems = allItems.map(i => ({
             name: i.name,
             quantity: i.quantity,
@@ -124,16 +131,17 @@ exports.closeOrder = async (req, res) => {
             items: snapshotItems,
             totalAmount,
             shift: shift || masterOrder.shift || 'error',
+            zone: zone, // 📌 บันทึก zone ลงออเดอร์
             closedAt: new Date()
         });
 
-        // เปลี่ยนสถานะ Item เป็น paid ทั้งหมด เพื่อทำ Report รายเมนูของพี่
+        // เปลี่ยนสถานะ Item เป็น paid ทั้งหมด เพื่อทำ Report รายเมนู
         await OrderItem.updateMany(
             { orderId: { $in: orderIds } },
             { status: 'paid', orderId: masterOrder._id, updatedAt: new Date() }
         );
 
-        // 🎯 3. แก้ไขตรงนี้ด้วยครับ: ตอนเคลียร์บิลรองที่อาจจะค้างอยู่ ให้รวมลบสถานะ printing และ printed ออกไปด้วย จะได้ไม่ค้างคาโต๊ะ
+        // 🎯 3. เคลียร์บิลรองที่อาจจะค้างอยู่ ให้รวมลบสถานะ printing และ printed ออกไปด้วย จะได้ไม่ค้างคาโต๊ะ
         await Order.deleteMany({
             tableId: masterOrder.tableId,
             _id: { $ne: masterOrder._id },
@@ -144,9 +152,15 @@ exports.closeOrder = async (req, res) => {
         await Table.findByIdAndUpdate(masterOrder.tableId, { table_status: 'available' });
 
         // =========================================================
-        // 🚀 🛠️ ส่วนส่งแจ้งเตือน TELEGRAM NOTIFICATION (เพิ่มแสดง Option)
+        // 🚀 🛠️ ส่วนส่งแจ้งเตือน TELEGRAM NOTIFICATION (HTML MODE ปลอดภัย 100%)
         // =========================================================
         try {
+            // ฟังก์ชันช่วยจัดการล้างอักขระพิเศษของ HTML เพื่อความปลอดภัยป้องกันบอทเออร์เรอร์
+            const escapeHTML = (str) => {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            };
+
             // 1. ดึงรายการอาหารทั้งหมดมาจัด List + แสดง Options (ถ้ามี)
             const itemsList = allItems.map(item => {
                 const optionsStr = item.options && item.options.length > 0
@@ -166,21 +180,28 @@ exports.closeOrder = async (req, res) => {
                 }).join('\n')
                 : '- ไม่มีรายการแก้ไข';
 
-            // 3. ประกอบข้อความสั้น กระชับตามสั่ง
+            // 3. ประกอบข้อความด้วยแท็ก HTML สวยงามและไม่บั๊กง่าย
+            const paymentLabels = {
+                cash: 'เงินสด 💵',
+                promptpay: 'โอนเงิน (PromptPay) 📱',
+                truemoney: 'TrueMoney Wallet 🧡',
+                goverment: 'โครงการรัฐ 🇹🇭',
+                lineman: 'Line Man 🛵'
+            };
+
             const checkoutMsg = `
-🔔 *เช็คบิลปิดโต๊ะ*
-📍 *โต๊ะ:* โต๊ะ ${masterOrder.table_name || 'ทั่วไป'}
-💳 *ชำระโดย:* ${paymentMethod === 'cash' ? 'เงินสด' : 'โอน'}
-💰 *จำนวนเงินรวม:* ${totalAmount?.toLocaleString()}.- บาท
+🔔 <b>เช็คบิล</b> 📍 <b>โต๊ะ:</b> ${escapeHTML(masterOrder.table_name || 'ทั่วไป')}
+💳 <b>ชำระโดย:</b> ${paymentLabels[paymentMethod] || 'ไม่ระบุ'}
+💰 <b>จำนวนเงินรวม:</b> ${totalAmount?.toLocaleString()}.- บาท
 
-📦 *[ รายการอาหาร ]*
-${itemsList}
+📦 <b>[ รายการอาหาร ]</b>
+${escapeHTML(itemsList)}
 
-⚠️ *[ ออเดอร์ที่เคยแก้ ]*
-${editedList}
+⚠️ <b>[ ออเดอร์ที่เคยแก้ ]</b>
+${escapeHTML(editedList)}
 `.trim();
 
-            // 4. ส่งออกไปที่ห้องแชทเช็คบิล
+            // 4. ส่งออกไปที่ห้องแชทเช็คบิล (ภายในฟังก์ชันส่ง telegramService ต้องมั่นใจว่าใช้ parse_mode: 'HTML')
             sendTelegramNotification('checkout', checkoutMsg);
         } catch (telegramErr) {
             console.error('❌ แจ้งเตือน Telegram เช็คบิลพลาด:', telegramErr.message);
@@ -189,6 +210,94 @@ ${editedList}
 
 
         res.json({ message: "เช็คบิลสำเร็จ" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 📌 ฟังก์ชันใหม่สำหรับแยกบิลจ่ายโดยเฉพาะ
+exports.splitCheckout = async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        const { itemIds, splitTotalAmount, paymentMethod, discount, discountAmount, cashReceived, changeGiven, customerName, shift } = req.body;
+
+        // 1. ค้นหาออเดอร์หลักที่ยังเปิดอยู่ของโต๊ะนี้
+        const activeOrder = await Order.findOne({
+            tableId,
+            status: { $in: ['draft', 'pending', 'printing', 'printed'] }
+        });
+
+        if (!activeOrder) return res.status(404).json({ error: "ไม่พบออเดอร์หลักที่กำลังเปิดอยู่" });
+
+        // 🎯 ดึงข้อมูลโต๊ะเพื่อเอา zone มาใช้งาน
+        const table = await Table.findById(tableId);
+        let zone = 'main'; // ค่าเริ่มต้น
+        if (table && table.display && table.display.zone) {
+            zone = table.display.zone === 'Main' ? 'main' : table.display.zone;
+        }
+
+        // 2. ค้นหารายการอาหารเฉพาะตัวที่ลูกค้าเลือกแยกบิล
+        const splitItems = await OrderItem.find({ _id: { $in: itemIds } });
+        if (splitItems.length === 0) return res.status(400).json({ error: "ไม่พบรายการอาหารที่ต้องการแยกบิล" });
+
+        // 3. สร้าง Snapshot ของรายการอาหารเพื่อบันทึกประวัติลงบิลใหม่
+        const snapshotItems = splitItems.map(i => ({
+            name: i.name,
+            quantity: i.quantity,
+            price: i.price,
+            options: i.options,
+            note: i.note,
+            status: 'paid'
+        }));
+
+        // 4. สร้างออเดอร์ "ใบใหม่" สำหรับการแยกบิลครั้งนี้ (สถานะ Paid ทันที)
+        const splitOrder = await Order.create({
+            tableId: activeOrder.tableId,
+            table_name: `${activeOrder.table_name} (แยกบิล)`, // เติมคำว่าแยกบิลให้รู้ตอนดู Report
+            status: 'paid',
+            paymentMethod,
+            discount,
+            discountAmount,
+            cashReceived,
+            changeGiven,
+            cashierName: customerName,
+            items: snapshotItems,
+            totalAmount: splitTotalAmount,
+            shift: shift || activeOrder.shift || 'error',
+            zone: zone, // 📌 บันทึก zone ลงออเดอร์แยกบิลตรงนี้
+            closedAt: new Date()
+        });
+
+        // 5. อัปเดตรายการอาหารที่แยกออกมา ให้ผูกกับออเดอร์ใบใหม่ และเปลี่ยนเป็น Paid
+        await OrderItem.updateMany(
+            { _id: { $in: itemIds } },
+            { $set: { status: 'paid', orderId: splitOrder._id, updatedAt: new Date() } }
+        );
+
+        // 6. เช็คว่าบิลหลักเหลือรายการอาหารอีกไหม
+        const remainingItems = await OrderItem.find({
+            orderId: activeOrder._id,
+            status: { $ne: 'paid' }
+        });
+
+        if (remainingItems.length === 0) {
+            // ถ้าไม่เหลือแล้ว = โต๊ะว่าง ลบบิลหลักทิ้งและคืนโต๊ะ
+            await Order.findByIdAndDelete(activeOrder._id);
+            await Table.findByIdAndUpdate(activeOrder.tableId, { table_status: 'available' });
+        } else {
+            // ถ้ายังมีของเหลือ ให้คำนวณยอดรวมของบิลหลักใหม่ (Recalculate)
+            const newTotal = remainingItems.reduce((sum, i) => {
+                const optionsTotal = i.options ? i.options.reduce((optSum, opt) => optSum + (opt.extraPrice || 0), 0) : 0;
+                return sum + ((i.price + optionsTotal) * i.quantity);
+            }, 0);
+            await Order.findByIdAndUpdate(activeOrder._id, { totalAmount: newTotal });
+        }
+
+        res.json({
+            message: "แยกบิลสำเร็จ",
+            splitOrderId: splitOrder._id,
+            remainingItemsCount: remainingItems.length
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

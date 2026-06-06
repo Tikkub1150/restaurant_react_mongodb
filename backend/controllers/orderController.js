@@ -411,7 +411,7 @@ exports.handlePythonPrintCallback = async (req, res) => {
             }
         );
 
-        console.log(`[Python Callback] พิมพ์สำเร็จ อัปเดตสถานะ OrderItem เป็น printed แล้ว:`, itemIds);
+        // console.log(`[Python Callback] พิมพ์สำเร็จ อัปเดตสถานะ OrderItem เป็น printed แล้ว:`, itemIds);
         res.json({ status: "success", message: "อัปเดตสถานะรายการอาหารย่อยเรียบร้อยแล้ว" });
 
     } catch (err) {

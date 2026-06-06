@@ -15,10 +15,10 @@ exports.sendTelegramNotification = async (type, message) => {
         await axios.post(url, {
             chat_id: config.chat_id,
             text: message,
-            parse_mode: 'Markdown'
+            parse_mode: 'HTML' // 🎯 เปลี่ยนจาก 'Markdown' เป็น 'HTML' ตรงนี้ครับ
         });
 
-        console.log(`✅ ส่งแจ้งเตือน Telegram [${type}] สำเร็จ`);
+        // console.log(`✅ ส่งแจ้งเตือน Telegram [${type}] สำเร็จ`);
     } catch (err) {
         console.error('❌ ส่ง Telegram พัง:', err.response?.data || err.message);
     }
